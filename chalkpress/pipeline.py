@@ -150,9 +150,13 @@ def run(opt: Options, log=print, progress=None) -> Result:
     else:
         emit("stage", key="summary", name="AI 总结")
         log(f"[4/5] LLM 分析（{cfg.model}，{len(frames)} 帧）…")
-        summary_md = analyze.summarize(video.stem, duration, aligned, frames, cfg, pack)
-        if summary_md and opt.summary_lang.startswith("zh"):
-            summary_md = textproc.convert(summary_md, script)
+        try:
+            summary_md = analyze.summarize(video.stem, duration, aligned, frames, cfg, pack)
+            if summary_md and opt.summary_lang.startswith("zh"):
+                summary_md = textproc.convert(summary_md, script)
+        except Exception as exc:  # LLM 不可达/超时：保留字幕与 PDF，仅跳过总结
+            log(f"      分析失败，跳过总结：{exc}")
+            summary_md = None
         emit("stage_done", key="summary")
     summary_path = None
     if summary_md:
