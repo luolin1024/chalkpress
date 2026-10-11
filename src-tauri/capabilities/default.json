@@ -9,7 +9,7 @@
     "opener:allow-open-path",
     "updater:default",
     {
-      "identifier": "shell:allow-execute",
+      "identifier": "shell:allow-spawn",
       "allow": [
         { "name": "binaries/chalkpress-core", "sidecar": true }
       ]
