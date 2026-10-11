@@ -1,8 +1,8 @@
 /* src/app.css —— 设计令牌，全项目共用 */
 :root {
-  --accent: #4f5bd5;
-  --accent-dk: #4348b8;
-  --accent-bg: #edefff;
+  --accent: #2f5d50;
+  --accent-dk: #254a40;
+  --accent-bg: #e8f0ec;
   --bg: #f5f6fa;
   --card: #ffffff;
   --ink: #1d1d1f;

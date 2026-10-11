@@ -155,7 +155,8 @@ def normalize_settings(raw: dict) -> dict:
         "zh_script": o.get("zh_script", "auto"),
         "auto_correct": bool(o.get("auto_correct", True)),
     }
-    for k in ("asr_model", "scene_threshold", "min_gap"):
+    for k in ("asr_model", "scene_threshold", "min_gap",
+              "language", "asr_backend"):
         if o.get(k) is not None:
             options[k] = o[k]
     cfg: dict = {"options": options,

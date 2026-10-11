@@ -113,7 +113,15 @@
 
 <main class="wrap">
   <header>
-    <div class="brand"><span class="logo"></span> Chalkpress</div>
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="14" fill="#2f5d50"/>
+        <path d="M22 12 h14 l8 8 v30 a4 4 0 0 1 -4 4 h-18 a4 4 0 0 1 -4 -4 v-34 a4 4 0 0 1 4 -4 z" fill="#f6f3e7"/>
+        <path d="M36 12 l8 8 h-8 z" fill="#becfc7"/>
+        <path d="M27 25 l14 8 -14 8 z" fill="#2f5d50"/>
+      </svg>
+      Chalkpress
+    </div>
     <button class="gear" title="设置" onclick={() => (settingsOpen = true)}>⚙</button>
   </header>
 
@@ -164,7 +172,7 @@
   .wrap { max-width: 760px; margin: 0 auto; padding: 16px 24px 32px; }
   header { display: flex; align-items: center; justify-content: space-between; }
   .brand { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; }
-  .logo { width: 22px; height: 22px; border-radius: 7px; background: var(--accent); display: inline-block; }
+  .logo { width: 22px; height: 22px; display: inline-block; }
   .gear { border: 0; background: transparent; font-size: 18px; cursor: pointer; color: var(--ink2); }
   .hero { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 8vh; }
   .drop { width: 100%; background: var(--card); border: 1.5px dashed var(--faint); border-radius: var(--radius);
