@@ -92,6 +92,8 @@ def run(opt: Options, log=print, progress=None) -> Result:
     outdir = (opt.outdir or video.with_name(video.stem + "_讲义")).expanduser().resolve()
     outdir.mkdir(parents=True, exist_ok=True)
     pack = lang_pack(opt.summary_lang)
+    srt_path = outdir / f"{video.stem}.srt"
+    wav = outdir / "audio.wav"
 
     cfg = None
     if not opt.skip_analysis:
