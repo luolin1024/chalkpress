@@ -115,10 +115,10 @@
   <header>
     <div class="brand">
       <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
-        <rect width="64" height="64" rx="14" fill="#2f5d50"/>
+        <rect width="64" height="64" rx="14" fill="#4f5bd5"/>
         <path d="M22 12 h14 l8 8 v30 a4 4 0 0 1 -4 4 h-18 a4 4 0 0 1 -4 -4 v-34 a4 4 0 0 1 4 -4 z" fill="#f6f3e7"/>
-        <path d="M36 12 l8 8 h-8 z" fill="#becfc7"/>
-        <path d="M27 25 l14 8 -14 8 z" fill="#2f5d50"/>
+        <path d="M36 12 l8 8 h-8 z" fill="#c6ccee"/>
+        <path d="M27 25 l14 8 -14 8 z" fill="#4f5bd5"/>
       </svg>
       Chalkpress
     </div>

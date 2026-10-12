@@ -1,4 +1,4 @@
-"""生成 Chalkpress 应用图标（与 Tauri 应用图标同源的设计：黑板绿 + 讲义页 + 播放三角）。
+"""生成 Chalkpress 应用图标（应用图标同源设计：靛蓝 + 讲义页 + 播放三角）。
 
 用法：python packaging/make_icons.py
 产物：packaging/icon_1024.png、packaging/icon.ico；macOS 上另出 packaging/icon.icns。
@@ -9,9 +9,9 @@ import sys
 
 from PIL import Image, ImageDraw
 
-GREEN = (47, 93, 80, 255)       # #2F5D50 黑板绿
+GREEN = (79, 91, 213, 255)      # #4F5BD5 靛蓝（主色）
 CREAM = (246, 243, 231, 255)    # #F6F3E7 讲义页
-FOLD = (190, 207, 199, 255)     # #BECFC7 折角
+FOLD = (198, 204, 238, 255)     # #C6CCEE 折角（靛蓝浅调）
 
 # 36 单位坐标空间（Tauri 应用图标同源设计）
 PAGE = [(11.5, 7), (20.5, 7), (26.5, 13), (26.5, 28.5), (24.7, 30.3),
