@@ -7,6 +7,7 @@
 import argparse
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
@@ -25,7 +26,17 @@ def ensure_model():
         return
     print("下载 whisper-small 模型到 build/model ...", file=sys.stderr)
     from huggingface_hub import snapshot_download
-    snapshot_download("Systran/faster-whisper-small", local_dir=str(MODEL_DIR))
+    # HF 对 GitHub runner 共享 IP 匿名限流（429），偶发，重试即可过
+    for attempt in (1, 2, 3):
+        try:
+            snapshot_download("Systran/faster-whisper-small", local_dir=str(MODEL_DIR))
+            return
+        except Exception as exc:
+            if attempt == 3:
+                raise
+            wait = 30 * attempt
+            print(f"模型下载失败（{exc}），{wait}s 后重试（{attempt}/3）", file=sys.stderr)
+            time.sleep(wait)
 
 
 def main():
