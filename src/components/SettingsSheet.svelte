@@ -6,6 +6,7 @@
   let { onClose }: { onClose: () => void } = $props();
 
   let s = $state<any>(null);
+  let saved = $state(false);
   let saveErr = $state("");
 
   $effect(() => {
