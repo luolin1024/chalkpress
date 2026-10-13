@@ -67,6 +67,43 @@ def test_fs_list_videos(tmp_path):
     assert resp["result"]["videos"] == [str(tmp_path / "a.mp4")]
 
 
+def test_http_mode_roundtrip(tmp_path, monkeypatch):
+    """HTTP 模式：/health、/rpc 调用与 /events 增量拉取。"""
+    import json as jsonlib
+    import threading
+    import urllib.request
+    import chalkpress.config as config
+    from chalkpress.ipc import make_http_server
+
+    monkeypatch.setattr(config, "config_path", lambda: tmp_path / "config.toml")
+    httpd = make_http_server(0)  # 端口 0 = 内核分配空闲端口
+    port = httpd.server_address[1]
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{port}"
+    try:
+        with urllib.request.urlopen(f"{base}/health") as r:
+            assert jsonlib.load(r) == {"ok": True}
+
+        req = urllib.request.Request(
+            f"{base}/rpc", method="POST",
+            data=jsonlib.dumps({"method": "settings.set",
+                                "params": {"options": {"summary_lang": "en"}}}).encode(),
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req) as r:
+            assert jsonlib.load(r) == {"result": {}}
+
+        with urllib.request.urlopen(f"{base}/rpc", data=jsonlib.dumps(
+                {"method": "settings.get"}).encode()) as r:
+            body = jsonlib.load(r)
+        assert body["result"]["options"]["summary_lang"] == "en"
+
+        with urllib.request.urlopen(f"{base}/events?after=0") as r:
+            evs = jsonlib.load(r)["events"]
+        assert isinstance(evs, list)
+    finally:
+        httpd.shutdown()
+
+
 def test_sanitize_progress_result_to_dict():
     """Result 数据类不可 JSON 序列化，必须展平为标量字段。"""
     class FakeResult:

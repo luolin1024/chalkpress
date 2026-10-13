@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 import threading
 import time
@@ -35,13 +36,14 @@ def sanitize_progress(ev: str, kw: dict) -> tuple[str, dict]:
 
 
 class IPCServer:
-    def __init__(self, stdin=None, stdout=None):
+    def __init__(self, stdin=None, stdout=None, emit=None):
         self.stdin = stdin or sys.stdin
         self.stdout = stdout or sys.stdout
         self.cancel = threading.Event()
         self.worker: threading.Thread | None = None
         self._wlock = threading.Lock()
         self._fh = None
+        self._emit_fn = emit
 
     # ---------- 输出 ----------
     def send(self, obj: dict):
@@ -49,15 +51,26 @@ class IPCServer:
             self.stdout.write(json.dumps(obj, ensure_ascii=False) + "\n")
             self.stdout.flush()
 
+    def _emit(self, obj: dict):
+        """事件出口：stdio 模式写 stdout；HTTP 模式由 run_http 注入缓冲。"""
+        if self._emit_fn is not None:
+            self._emit_fn(obj)
+        else:
+            self.send(obj)
+
     # ---------- 请求处理 ----------
+    def handle_call(self, method, params) -> dict:
+        """同步调用：返回 {result} 或 {error}，stdio/HTTP 两模式共用。"""
+        try:
+            return {"result": self.dispatch(method, params or {})}
+        except Exception as exc:
+            log.exception("handle %s failed", method)
+            return {"error": str(exc)}
+
     def handle(self, req: dict) -> dict:
         rid = req.get("id")
-        try:
-            result = self.dispatch(req.get("method"), req.get("params") or {})
-        except Exception as exc:
-            log.exception("handle %s failed", req.get("method"))
-            return {"id": rid, "error": str(exc)}
-        return {"id": rid, "result": result}
+        out = self.handle_call(req.get("method"), req.get("params") or {})
+        return {"id": rid, **out}
 
     def dispatch(self, method: str, params: dict):
         if method == "settings.get":
@@ -111,7 +124,7 @@ class IPCServer:
 
         def progress(ev, **kw):
             ev, kw = sanitize_progress(ev, kw)
-            self.send({"event": ev, **kw})
+            self._emit({"event": ev, **kw})
 
         def work():
             try:
@@ -167,7 +180,119 @@ class IPCServer:
             self.send(self.handle(req))
 
 
+def make_http_server(port: int):
+    """HTTP 模式（Tauri 前端用）：127.0.0.1 上的 POST /rpc + GET /events?after=N + GET /health。
+
+    plugin-shell 的 stdio 事件投递在部分环境下静默失效，回环 HTTP 可 curl 直调。
+    返回已绑定的 ThreadingHTTPServer（port=0 时由内核分配，测试用）。
+    """
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from urllib.parse import urlparse, parse_qs
+
+    events: list[dict] = []
+    st = {"trimmed": 0}  # 已从 events 左侧裁掉的事件数
+    lock = threading.Lock()
+    core = IPCServer()
+
+    def emit(obj: dict):
+        with lock:
+            obj = dict(obj)
+            obj["_seq"] = st["trimmed"] + len(events) + 1
+            events.append(obj)
+            if len(events) > 4000:  # 控内存，保留最近一段
+                drop = len(events) - 2000
+                del events[:drop]
+                st["trimmed"] += drop
+
+    core._emit_fn = emit
+
+    class Handler(BaseHTTPRequestHandler):
+        def _cors(self):
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
+        def do_OPTIONS(self):
+            self.send_response(204)
+            self._cors()
+            self.end_headers()
+
+        def do_GET(self):
+            url = urlparse(self.path)
+            if url.path == "/health":
+                body = b'{"ok": true}'
+            elif url.path == "/events":
+                after = int(parse_qs(url.query).get("after", ["0"])[0])
+                with lock:
+                    avail = st["trimmed"] + len(events)
+                    chunk = [e for e in events if e["_seq"] > after]
+                    body = json.dumps({"events": chunk, "next": avail}).encode()
+            else:
+                self.send_response(404)
+                self.end_headers()
+                return
+            self.send_response(200)
+            self._cors()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_POST(self):
+            if urlparse(self.path).path != "/rpc":
+                self.send_response(404)
+                self.end_headers()
+                return
+            n = int(self.headers.get("Content-Length", 0))
+            try:
+                req = json.loads(self.rfile.read(n) or b"{}")
+                out = core.handle_call(req.get("method"), req.get("params"))
+            except Exception as exc:
+                out = {"error": str(exc)}
+            body = json.dumps(out).encode()
+            self.send_response(200)
+            self._cors()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass  # 静默访问日志，stderr 只留业务日志
+
+    return ThreadingHTTPServer(("127.0.0.1", port), Handler)
+
+
+def run_http(port: int):
+    """绑定并伺服；stdin EOF（宿主退出→管道关闭）即关服退出。"""
+    httpd = make_http_server(port)
+
+    def watch_stdin():
+        for _ in sys.stdin:  # 宿主退出 → 管道 EOF → 关服
+            pass
+        log.info("stdin EOF，退出")
+        httpd.shutdown()
+
+    threading.Thread(target=watch_stdin, daemon=True).start()
+    log.info("HTTP IPC listening on %s:%d", *httpd.server_address)
+    httpd.serve_forever()
+
+
 def main():
+    import argparse
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--http", action="store_true", help="HTTP 模式（Tauri 前端）")
+    ap.add_argument("--port", type=int, default=0)
+    args = ap.parse_args()
+    # Tauri 侧用环境变量传配置（plugin-shell 的 sidecar args 在部分版本静默丢失，
+    # 所以 --http/--port 都有环境变量兜底）
+    if not args.http and os.getenv("CHALKPRESS_IPC_PORT"):
+        args.http = True
+    if args.port == 0:
+        args.port = int(os.getenv("CHALKPRESS_IPC_PORT", "0"))
+
     logging.basicConfig(stream=sys.stderr, level=logging.INFO,
                         format="%(asctime)s %(name)s %(message)s")
     if hasattr(sys.stdout, "reconfigure"):
@@ -176,7 +301,10 @@ def main():
     sys.stdout = sys.stderr     # 第三方 Python 级 print() → stderr
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(line_buffering=True)
-    IPCServer(stdout=protocol_out).serve()
+    if args.http:
+        run_http(args.port)
+    else:
+        IPCServer(stdout=protocol_out).serve()
 
 
 if __name__ == "__main__":

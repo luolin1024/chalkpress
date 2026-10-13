@@ -3,6 +3,13 @@
 日期：2026-10-10
 状态：已与维护者确认
 
+> **修订（2026-10-13）**：IPC 传输由 plugin-shell stdio 行协议改为 **127.0.0.1 回环 HTTP**。
+> 原因：plugin-shell 对 sidecar 的 stdout 事件投递在 WebView2 与 WebKitGTK 上均静默失效
+> （进程 spawn 正常、stdin 写入被接受，但 Stdout/Close 事件永不达，无任何报错，CLI 直测
+> 同一二进制正常）。且 sidecar 启动参数（--http/--port）也会被静默丢弃，故模式与端口改由
+> 环境变量 `CHALKPRESS_IPC_PORT` 传递。前端 `request()` 改为 fetch，进度事件改为 300ms
+> 轮询 `GET /events?after=N`。后端 `python -m chalkpress.ipc --http --port N`，纯 stdlib 实现。
+
 ## 背景与目标
 
 现有 GUI 为 tkinter 自绘（`chalkpress/gui.py`，约 1050 行），存在观感粗糙、动效缺失等固有限制。决定用 **Tauri 2 壳 + Web 前端** 重写 GUI，追求精致的产品级 UI；Python 流水线（faster-whisper / OpenCC / reportlab）是项目核心资产且无 Rust 对等生态，**原样保留**，以 sidecar 子进程形式被 Tauri 拉起。

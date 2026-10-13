@@ -8,15 +8,21 @@
   let s = $state<any>(null);
   let saved = $state(false);
   let saveErr = $state("");
+  let loadErr = $state("");
 
   $effect(() => {
-    request("settings.get").then((r: any) => {
-      // 未配置 llm / 部分缺省时补默认值，避免 bind 到 undefined
-      r.llm = { api_base: "", api_key: "", model: "", ...r.llm };
-      r.options = { asr_model: null, scene_threshold: null, min_gap: null,
-                    language: null, asr_backend: null, ...r.options };
-      s = r;
-    });
+    loadErr = "";
+    request("settings.get")
+      .then((r: any) => {
+        // 未配置 llm / 部分缺省时补默认值，避免 bind 到 undefined
+        r.llm = { api_base: "", api_key: "", model: "", ...r.llm };
+        r.options = { asr_model: null, scene_threshold: null, min_gap: null,
+                      language: null, asr_backend: null, ...r.options };
+        s = r;
+      })
+      .catch((e: any) => {
+        loadErr = String(e?.message ?? e);
+      });
   });
 
   const save = $state({ timer: 0 as any });
@@ -97,11 +103,15 @@
     <p class="about">Chalkpress · 讲座视频 → 讲义 PDF<br />AGPL-3.0 开源 · 商用请联系作者<br />当前版本见窗口标题；更新自动进行</p>
   </aside>
 {:else}
-  <div class="mask" onclick={onClose}></div>
+  <div class="mask" onclick={onClose}>
+    <div class="dbg">{loadErr ? `加载失败：${loadErr}` : "加载中…"}</div>
+  </div>
 {/if}
 
 <style>
   .mask { position: fixed; inset: 0; background: rgba(0,0,0,.25); }
+  .dbg { position: fixed; top: 14px; left: 0; right: 0; text-align: center;
+         color: #fff; font: 13px/1.4 monospace; text-shadow: 0 1px 2px #000; }
   .sheet { position: fixed; top: 0; right: 0; bottom: 0; width: 380px; background: var(--card);
            box-shadow: -8px 0 32px rgba(0,0,0,.12); padding: 18px 22px 32px; overflow-y: auto;
            animation: slide .18s ease-out; }
