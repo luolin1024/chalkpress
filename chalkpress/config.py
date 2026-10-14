@@ -154,6 +154,7 @@ def normalize_settings(raw: dict) -> dict:
         "summary_lang": o.get("summary_lang", "zh"),
         "zh_script": o.get("zh_script", "auto"),
         "auto_correct": bool(o.get("auto_correct", True)),
+        "term_fix": bool(o.get("term_fix", False)),
     }
     for k in ("asr_model", "scene_threshold", "min_gap",
               "language", "asr_backend"):

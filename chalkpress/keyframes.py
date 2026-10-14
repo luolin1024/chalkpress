@@ -84,14 +84,21 @@ def extract_frames(video: Path, times, frames_dir: Path, dup_bits: int = 12) -> 
     last_hash = None
     for ts in times:
         path = frames_dir / f"{len(frames):02d}_{_stamp(ts)}.jpg"
-        subprocess.run(
+        proc = subprocess.run(
             [ffmpeg(), "-hide_banner", "-loglevel", "error", "-y",
              "-ss", f"{ts:.3f}", "-i", str(video),
              "-frames:v", "1", "-q:v", "2", str(path)],
-            check=True, capture_output=True, text=True,
+            capture_output=True, text=True,
             encoding="utf-8", errors="replace",
         )
-        h = _ahash(path)
+        # 时长来自音轨，可能略超视频流末尾：seek 落空时 ffmpeg 不产出帧，跳过该时间点
+        if proc.returncode != 0 or not path.is_file() or path.stat().st_size == 0:
+            continue
+        try:
+            h = _ahash(path)
+        except Exception:
+            path.unlink(missing_ok=True)
+            continue
         if last_hash is not None and _hamming(h, last_hash) <= dup_bits:
             path.unlink()
             continue

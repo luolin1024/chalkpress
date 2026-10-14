@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import align, analyze, asr, correct, keyframes, pdf, textproc
+from . import align, analyze, asr, correct, keyframes, pdf, terms, textproc
 from .config import lang_pack, load_config_file, load_llm_config
 
 
@@ -25,6 +25,7 @@ class Options:
     language: str | None = None           # None → 配置文件 → auto
     zh_script: str | None = None          # None → 配置文件 → auto（按系统 locale）
     auto_correct: bool | None = None      # None → 配置文件 → True（LLM 字幕校对）
+    term_fix: bool | None = None          # None → 配置文件 → False（软考术语表修正，通用版默认关）
     reuse_srt: Path | None = None
     summary_lang: str | None = None       # None → 配置文件 → zh
     skip_analysis: bool = False
@@ -43,6 +44,7 @@ _FILE_OPTION_DEFAULTS = {
     "language": "auto",
     "zh_script": "auto",
     "auto_correct": True,
+    "term_fix": False,
     "summary_lang": "zh",
 }
 
@@ -112,6 +114,16 @@ def run(opt: Options, log=print, progress=None) -> Result:
         log(f"      {len(segments)} 条原始字幕（检测语言：{detected or '?'}）")
     emit("detected_lang", lang=detected)
     emit("stage_done", key="asr")
+    # 先简繁规范再校对：whisper 常输出繁体，繁体原文会与"不翻译/保持原文"
+    # 指令冲突，触发推理模型长时间空转直至耗尽 max_tokens（正文为空）
+    script = textproc.resolve_zh_script(opt.zh_script)
+    if opt.term_fix:
+        fix_n = 0
+        for s in segments:
+            s["text"], k = terms.fix_terms(s["text"])
+            fix_n += k
+        if fix_n:
+            log(f"      术语表修正 {fix_n} 处")
     if opt.auto_correct and cfg is not None and segments and detected == "zh":
         emit("stage", key="correct", name="字幕校对")
         log("      LLM 字幕校对（同音字/误听修正）…")
@@ -121,9 +133,6 @@ def run(opt: Options, log=print, progress=None) -> Result:
         except Exception as exc:
             log(f"      校对失败，保留原文：{exc}")
         emit("stage_done", key="correct")
-    script = textproc.resolve_zh_script(opt.zh_script)
-    for s in segments:
-        s["text"] = textproc.convert(s["text"], script)
     asr.write_srt(segments, srt_path)
     log(f"      {len(segments)} 条字幕（{script}）→ {srt_path.name}")
     duration = asr.wav_duration(wav) if wav.exists() else keyframes.parse_duration_ffmpeg(video)
@@ -163,6 +172,7 @@ def run(opt: Options, log=print, progress=None) -> Result:
         summary_path = outdir / f"{video.stem}.summary.md"
         summary_path.write_text(summary_md, encoding="utf-8")
 
+    pdf_path = None
     if opt.skip_pdf:
         log("[5/5] 已指定跳过 PDF")
     else:

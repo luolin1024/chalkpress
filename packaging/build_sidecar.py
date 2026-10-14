@@ -59,6 +59,7 @@ def main():
         "--collect-all", "faster_whisper", "--collect-all", "ctranslate2",
         "--collect-all", "imageio_ffmpeg", "--collect-all", "onnxruntime",
         "--collect-all", "tokenizers", "--collect-all", "av",
+        "--collect-all", "pypinyin",
         "--add-data", f"{MODEL_DIR}{sep}models/faster-whisper-small",
         "--distpath", str(OUT), "--workpath", str(work),
         "--specpath", str(work), "--paths", str(ROOT),

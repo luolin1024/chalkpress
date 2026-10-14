@@ -47,6 +47,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="中文字幕简繁：auto=按系统 locale（默认）")
     p.add_argument("--no-correct", dest="auto_correct", action="store_false", default=None,
                    help="关闭 LLM 字幕校对（默认开启，需已配置 LLM）")
+    p.add_argument("--term-fix", dest="term_fix", action="store_true", default=None,
+                   help="启用软考术语表修正（拼音比对，无 LLM；默认关闭，可写入配置文件）")
     p.add_argument("--reuse-srt", type=Path, default=None, help="复用已有 SRT，跳过转写")
     p.add_argument("--skip-analysis", action="store_true", help="跳过 LLM 分析")
     p.add_argument("--skip-pdf", action="store_true", help="跳过 PDF 生成")
@@ -73,6 +75,7 @@ def main(argv=None) -> int:
             asr_backend=args.asr_backend, asr_model=args.asr_model,
             language=args.language, summary_lang=args.summary_lang,
             zh_script=args.zh_script, auto_correct=args.auto_correct,
+            term_fix=args.term_fix,
             reuse_srt=args.reuse_srt, skip_analysis=args.skip_analysis,
             skip_pdf=args.skip_pdf, api_base=args.api_base,
             api_key=args.api_key, llm_model=args.llm_model, keep_wav=args.keep_wav,

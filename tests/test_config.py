@@ -5,7 +5,7 @@ from chalkpress.config import normalize_settings
 def test_normalize_defaults():
     cfg = normalize_settings({})
     assert cfg == {"options": {"summary_lang": "zh", "zh_script": "auto",
-                               "auto_correct": True},
+                               "auto_correct": True, "term_fix": False},
                    "app": {"keep_log": True}}
 
 

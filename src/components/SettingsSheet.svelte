@@ -17,8 +17,7 @@
         // 未配置 llm / 部分缺省时补默认值，避免 bind 到 undefined
         r.llm = { api_base: "", api_key: "", model: "", ...r.llm };
         r.options = { asr_model: null, scene_threshold: null, min_gap: null,
-                      language: null, asr_backend: null, ...r.options };
-        s = r;
+                      language: null, asr_backend: null, term_fix: false, ...r.options };
       })
       .catch((e: any) => {
         loadErr = String(e?.message ?? e);
@@ -77,6 +76,8 @@
       </select></label>
     <label class="row">AI 字幕校对
       <input type="checkbox" bind:checked={s.options.auto_correct} onchange={touch} /></label>
+    <label class="row">软考术语修正<span class="tip">拼音比对纠错，无 AI、瞬时</span>
+      <input type="checkbox" bind:checked={s.options.term_fix} onchange={touch} /></label>
 
     <h3>AI 分析（OpenAI 兼容接口）</h3>
     <label>接口地址<input bind:value={s.llm.api_base} oninput={touch} placeholder="不配置则跳过 AI 步骤" /></label>
@@ -121,6 +122,8 @@
   h3 { font-size: 12px; color: var(--ink2); margin: 20px 0 6px; text-transform: none; }
   label { display: block; font-size: 13px; margin: 10px 0; }
   label.row { display: flex; justify-content: space-between; align-items: center; }
+  label.row .tip { color: var(--ink2); font-size: 11px; margin-right: auto;
+                  margin-left: 10px; }
   input[type="text"], input:not([type]), input[type="password"], select {
       width: 100%; margin-top: 4px; padding: 7px 10px; border: 1px solid var(--line);
       border-radius: 8px; font: inherit; background: var(--card); }

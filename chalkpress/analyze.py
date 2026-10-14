@@ -5,8 +5,11 @@
 from __future__ import annotations
 
 import base64
+import time
+from io import BytesIO
 from pathlib import Path
 
+from PIL import Image as PILImage
 import requests
 
 from .align import _mmss
@@ -61,8 +64,24 @@ def _pick_template(pack: LangPack) -> str:
     return _PROMPT_EN if pack.code.startswith("en") else _PROMPT_ZH
 
 
+def _frame_data_url(path: Path, max_side: int = 1568, quality: int = 85) -> str:
+    """重压缩关键帧：原图是全分辨率高质量 JPEG，几十帧直接 base64 会撑爆请求体。
+
+    限制最长边 1568px（主流视觉模型输入上限）、JPEG q85 重编码，课件文字仍清晰可读。
+    """
+    with PILImage.open(path) as im:
+        im = im.convert("RGB")
+        w, h = im.size
+        scale = max_side / max(w, h)
+        if scale < 1:
+            im = im.resize((round(w * scale), round(h * scale)), PILImage.LANCZOS)
+        buf = BytesIO()
+        im.save(buf, "JPEG", quality=quality)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
 def summarize(title, duration, aligned, frames, cfg: LLMConfig, pack: LangPack,
-              timeout: int = 300) -> str:
+              timeout: int = 900) -> str:
     """把关键帧（图片）+ 分窗字幕喂给视觉模型，返回 Markdown 总结。"""
     frames_md = ["", "## 关键帧时间窗与字幕"]
     for i, (kf, seg) in enumerate(zip(frames, aligned), 1):
@@ -76,17 +95,16 @@ def summarize(title, duration, aligned, frames, cfg: LLMConfig, pack: LangPack,
 
     content: list[dict] = [{"type": "text", "text": prompt}]
     for kf in frames:
-        b64 = base64.b64encode(Path(kf.path).read_bytes()).decode()
         content.append({
             "type": "image_url",
-            "image_url": {"url": "data:image/jpeg;base64," + b64},
+            "image_url": {"url": _frame_data_url(kf.path)},
         })
 
     payload = {
         "model": cfg.model,
         "messages": [{"role": "user", "content": content}],
         "temperature": 0.2,
-        "max_tokens": 16384,
+        "max_tokens": 32768,
     }
     url = cfg.api_base + "/chat/completions"
     headers = {"Authorization": f"Bearer {cfg.api_key}"}
@@ -97,10 +115,19 @@ def summarize(title, duration, aligned, frames, cfg: LLMConfig, pack: LangPack,
             body["messages"] = [{"role": "user", "content": prompt}]
         return requests.post(url, json=body, headers=headers, timeout=timeout)
 
-    resp = _send(True)
-    if resp.status_code in (400, 415, 422):
-        # 模型不接受图片输入 → 降级为纯字幕文本分析
-        resp = _send(False)
+    def _send_with_retry(with_images: bool):
+        for attempt in range(3):
+            resp = _send(with_images)
+            # cc-router 上游偶发 502/503/504：退避重试，避免整段总结白跑
+            if resp.status_code not in (502, 503, 504) or attempt == 2:
+                return resp
+            time.sleep(5 * (attempt + 1))
+        return resp
+
+    resp = _send_with_retry(True)
+    if resp.status_code in (400, 413, 415, 422):
+        # 模型不接受图片输入（或请求体超限）→ 降级为纯字幕文本分析
+        resp = _send_with_retry(False)
     resp.raise_for_status()
     data = resp.json()
     msg = data["choices"][0]["message"]

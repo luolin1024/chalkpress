@@ -111,7 +111,7 @@ class IPCServer:
             summary_lang=o.get("summary_lang", "zh"),
             zh_script=o.get("zh_script", "auto"),
             auto_correct=o.get("auto_correct", True),
-            asr_backend=o.get("asr_backend"),
+            term_fix=o.get("term_fix"),
             asr_model=o.get("asr_model"),
             api_base=o.get("api_base"),
             api_key=o.get("api_key"),
