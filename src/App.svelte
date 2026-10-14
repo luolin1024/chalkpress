@@ -10,8 +10,9 @@
   import ResultsCard from "./components/ResultsCard.svelte";
   import SettingsSheet from "./components/SettingsSheet.svelte";
 
-  let settingsOpen = false;
-  let coreDown = false;
+  // 显式 runes：legacy 模式下的普通 let 在本文件中不可靠（设置面板打不开的根因）
+  let settingsOpen = $state(false);
+  let coreDown = $state(false);
 
   async function addFiles() {
     const sel = await open({ multiple: true,

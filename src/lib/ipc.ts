@@ -1,16 +1,32 @@
 // src/lib/ipc.ts
-import { Command } from "@tauri-apps/plugin-shell";
+// 传输：前端 → invoke(core_request/core_spawn，Rust 管道) → core stdio 行协议。
+// 事件经 Rust app.emit("core-event") 推送，@tauri-apps/api/event 的 listen 接收。
+// 弃用 WebView fetch 与 plugin-shell stdio：系统代理/安全软件吞回环请求、
+// plugin-shell 事件投递跨平台不可靠（设置面板卡"加载中"的根因）。
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
-// 传输：127.0.0.1 回环 HTTP（POST /rpc + GET /events?after=N 轮询）。
-// plugin-shell 的 stdio 事件投递在部分环境（WebView2/WebKitGTK 均复现）静默失效，
-// 故只借它拉起进程，收发全走 HTTP，可 curl 直调。
-const eventHandlers = new Set<(ev: any) => void>();
+/** sidecar 事件。已知字段按 state.svelte.ts 的消费形状声明。 */
+export type CoreEvent = {
+  event: string;
+  index: number;
+  total: number;
+  name: string;
+  pages: number;
+  count: number;
+  summary: boolean;
+  outdir?: string;
+  error?: string;
+  key: string;
+  ok: number;
+  _seq: number;
+};
+
+const eventHandlers = new Set<(ev: CoreEvent) => void>();
 const exitHandlers = new Set<() => void>();
-let baseUrl = "";
-let pollTimer: ReturnType<typeof setInterval> | null = null;
-let after = 0;
-let failCount = 0;
-let dead = false;      // sidecar 进程已退出（区别于未启动）
+let unlistenEvent: (() => void) | null = null;
+let unlistenExit: (() => void) | null = null;
+let started = false;
 let ready: Promise<void> | null = null;
 
 export function startCore(): Promise<void> {
@@ -19,94 +35,55 @@ export function startCore(): Promise<void> {
   return ready;
 }
 
-async function doStart(): Promise<void> {
-  dead = false;
-  const port = 49152 + Math.floor(Math.random() * 16000);
-  // 模式与端口全走环境变量：plugin-shell 对 sidecar 传 args 在部分版本会静默丢失
-  const c = Command.sidecar("binaries/chalkpress-core", [],
-    { env: { CHALKPRESS_IPC_PORT: String(port) } });
-  c.stderr.on("data", (l: string) => console.error("[core]", l));
-  c.on("close", () => {
-    dead = true;
-    baseUrl = "";
-    ready = null;  // 允许下次 startCore() 重试
-    stopPolling();
-    exitHandlers.forEach((h) => h());
-  });
-  try {
-    await c.spawn();
-  } catch (e) {
-    ready = null;  // 允许下次 startCore 重试
-    throw e;
-  }
-  // onefile 首启自解压实测可达 ~80s，健康检查窗口放宽到 150s
-  for (let i = 0; i < 300; i++) {
-    if (dead) {
-      ready = null;
-      throw new Error("core 已退出");
-    }
-    try {
-      const r = await fetch(`http://127.0.0.1:${port}/health`);
-      if (r.ok) {
-        baseUrl = `http://127.0.0.1:${port}`;
-        startPolling();
-        return;
-      }
-    } catch { /* 未就绪，继续等 */ }
-    await sleep(300);
-  }
-  // 超时也重置 ready：core 可能在解压完成后照常起了监听，重试即可用
-  ready = null;
-  throw new Error("core 健康检查超时");
-}
-
 function sleep(ms: number): Promise<void> {
   const { promise, resolve } = Promise.withResolvers<void>();
   setTimeout(resolve, ms);
   return promise;
 }
 
-export async function request<T = any>(method: string, params?: object): Promise<T> {
-  if (ready) await ready;          // 启动中则等它完成（含失败抛错）
-  if (!baseUrl) throw new Error("core 未启动");
-  const r = await fetch(`${baseUrl}/rpc`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ method, params: params ?? {} }),
-  });
-  const j = await r.json();
-  if (j.error) throw new Error(j.error);
-  return j.result as T;
-}
-
-function startPolling() {
-  after = 0;
-  failCount = 0;
-  pollTimer = setInterval(async () => {
-    if (!baseUrl) return;
+async function doStart(): Promise<void> {
+  if (!unlistenEvent) {
+    unlistenEvent = await listen<CoreEvent>("core-event", (e) => {
+      for (const h of eventHandlers) h(e.payload);
+    });
+  }
+  if (!unlistenExit) {
+    unlistenExit = await listen("core-exit", () => {
+      for (const h of exitHandlers) h();
+    });
+  }
+  const pong = await invoke<string>("ping");
+  console.log("[ipc] ping →", pong);
+  await invoke("core_spawn");  // 幂等：core 已运行时为 no-op
+  started = true;
+  // 健康轮询：用裸 invoke（request() 内部 await ready 会与 doStart 自死锁）
+  let lastErr = "";
+  for (let i = 0; i < 50; i++) {
     try {
-      const r = await fetch(`${baseUrl}/events?after=${after}`);
-      const j = await r.json();
-      failCount = 0;
-      for (const ev of j.events as any[]) {
-        after = ev._seq;
-        eventHandlers.forEach((h) => h(ev));
-      }
-    } catch {
-      if (++failCount >= 10) {  // 连续 3 秒不可达 → 引擎已退出
-        baseUrl = "";
-        stopPolling();
-        exitHandlers.forEach((h) => h());
-      }
+      const raw = await invoke<string>("core_request",
+        { method: "settings.get", params: "{}", timeoutMs: 15000 });
+      return;  // core 已应答（业务错误也算就绪）
+    } catch (e: unknown) {
+      lastErr = String(e instanceof Error ? e.message : e);
     }
-  }, 300);
+    await sleep(1000);
+  }
+  throw new Error(`core 启动超时（onefile 解压未完成）｜${lastErr}`);
 }
 
-function stopPolling() {
-  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+export async function request<T = unknown>(method: string, params?: object): Promise<T> {
+  if (ready) await ready;          // 启动中则等它完成（含失败抛错）
+  if (!started) throw new Error("core 未启动");
+  const v = await invoke("core_request", {
+    method,
+    params: JSON.stringify(params ?? {}),
+    timeoutMs: 30000,
+  }) as { result?: T; error?: string };  // Rust 命令返回的 Value 形状由 core_request 契约保证
+  if (v.error) throw new Error(v.error);
+  return v.result as T;
 }
 
-export function onEvent(h: (ev: any) => void): () => void {
+export function onEvent(h: (ev: CoreEvent) => void): () => void {
   eventHandlers.add(h);
   return () => eventHandlers.delete(h);
 }
