@@ -129,9 +129,10 @@ fn ping() -> String {
 }
 
 /// 前端 RPC：写入一行请求，等待同 id 响应。返回 Value（含 result 或 error）。
+/// 必须为 async：Tauri 的同步命令在主线程执行，阻塞等待会冻结整个 WebView。
 #[tauri::command]
-fn core_request(
-    state: tauri::State<SharedCore>,
+async fn core_request(
+    state: tauri::State<'_, SharedCore>,
     method: String,
     params: String,
     timeout_ms: Option<u64>,
