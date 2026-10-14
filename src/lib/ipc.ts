@@ -33,10 +33,18 @@ async function doStart(): Promise<void> {
     stopPolling();
     exitHandlers.forEach((h) => h());
   });
-  await c.spawn();
-  // onefile 首启自解压可能要几秒，健康检查最多等 60s
-  for (let i = 0; i < 200; i++) {
-    if (dead) throw new Error("core 已退出");
+  try {
+    await c.spawn();
+  } catch (e) {
+    ready = null;  // 允许下次 startCore 重试
+    throw e;
+  }
+  // onefile 首启自解压实测可达 ~80s，健康检查窗口放宽到 150s
+  for (let i = 0; i < 300; i++) {
+    if (dead) {
+      ready = null;
+      throw new Error("core 已退出");
+    }
     try {
       const r = await fetch(`http://127.0.0.1:${port}/health`);
       if (r.ok) {
@@ -45,9 +53,17 @@ async function doStart(): Promise<void> {
         return;
       }
     } catch { /* 未就绪，继续等 */ }
-    await new Promise((s) => setTimeout(s, 300));
+    await sleep(300);
   }
+  // 超时也重置 ready：core 可能在解压完成后照常起了监听，重试即可用
+  ready = null;
   throw new Error("core 健康检查超时");
+}
+
+function sleep(ms: number): Promise<void> {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  setTimeout(resolve, ms);
+  return promise;
 }
 
 export async function request<T = any>(method: string, params?: object): Promise<T> {
