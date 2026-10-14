@@ -80,6 +80,23 @@ def _frame_data_url(path: Path, max_side: int = 1568, quality: int = 85) -> str:
     return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
+def select_frames(frames: list, max_images: int = 24) -> list:
+    """长视频关键帧过多时等间隔抽样：主流视觉模型有图片数/请求体上限。
+
+    字幕文本（frames_md）覆盖全部时间窗，图片只是代表性采样，不丢信息密度。
+    """
+    if len(frames) <= max_images:
+        return list(frames)
+    idx = [round(i * (len(frames) - 1) / (max_images - 1)) for i in range(max_images)]
+    seen: set[int] = set()
+    sel = []
+    for i in idx:
+        if i not in seen:
+            seen.add(i)
+            sel.append(frames[i])
+    return sel
+
+
 def summarize(title, duration, aligned, frames, cfg: LLMConfig, pack: LangPack,
               timeout: int = 900) -> str:
     """把关键帧（图片）+ 分窗字幕喂给视觉模型，返回 Markdown 总结。"""
@@ -93,8 +110,12 @@ def summarize(title, duration, aligned, frames, cfg: LLMConfig, pack: LangPack,
         title=title, duration=_mmss(duration), n=len(frames), lang=pack.prompt_language,
     ) + "\n".join(frames_md)
 
+    sent = select_frames(frames)
+    if len(sent) < len(frames):
+        prompt += (f"\n\n注：视频关键帧共 {len(frames)} 张，以下仅附 {len(sent)} 张"
+                   "等间隔采样的截图；文字字幕覆盖全部时间窗，请以字幕为主线、截图为佐证。")
     content: list[dict] = [{"type": "text", "text": prompt}]
-    for kf in frames:
+    for kf in sent:
         content.append({
             "type": "image_url",
             "image_url": {"url": _frame_data_url(kf.path)},
