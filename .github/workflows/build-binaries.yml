@@ -111,7 +111,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete latest --yes --cleanup-tag || true
+          # GitHub API 偶发 500/最终一致性：删除后确认 release 真正消失再重建
+          for i in 1 2 3 4 5; do
+            gh release delete latest --yes --cleanup-tag >/dev/null 2>&1 || true
+            gh release view latest >/dev/null 2>&1 || break
+            sleep 5
+          done
           gh release create latest --prerelease \
             --title "Latest (main @ ${{ github.sha }})" \
             --notes "自动构建于 commit ${{ github.sha }}" \
