@@ -2,22 +2,24 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { open } from "@tauri-apps/plugin-dialog";
+  import { getVersion } from "@tauri-apps/api/app";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { request, startCore, onEvent, onCoreExit } from "./lib/ipc";
   import { app, resetRun, STAGES, computePct } from "./lib/state.svelte";
   import { autoUpdate } from "./lib/updater";
   import RunPanel from "./components/RunPanel.svelte";
   import ResultsCard from "./components/ResultsCard.svelte";
-  import SettingsSheet from "./components/SettingsSheet.svelte";
+  import SettingsPane from "./components/SettingsPane.svelte";
 
-  // 显式 runes：legacy 模式下的普通 let 在本文件中不可靠（设置面板打不开的根因）
-  let settingsOpen = $state(false);
+  type Page = "home" | "settings";
+  let page = $state<Page>("home");
   let coreDown = $state(false);
+  let ver = $state("");
 
   async function addFiles() {
     const sel = await open({ multiple: true,
       filters: [{ name: "视频", extensions: ["mp4","mov","mkv","webm","avi","m4v","flv","ts"] }] });
-    if (sel) for (const f of [].concat(sel as any)) addVideo(f as string);
+    if (sel) for (const f of [].concat(sel as never)) addVideo(f as string);
   }
   async function addFolder() {
     const dir = await open({ directory: true });
@@ -37,19 +39,21 @@
     resetRun();
     app.phase = "running";
     for (const [k] of STAGES) app.run.stages[k] = "todo";
+    page = "home";
     try {
       // 选项与 keep_log 以当前持久化设置为准
-      const s = await request<{ options: any; app: any }>("settings.get");
+      const s = await request<{ options: Record<string, unknown>; app: Record<string, unknown> }>("settings.get");
       await request("convert.start",
                     { videos: app.videos, options: s.options, app: s.app });
-    } catch (e: any) {
-      app.phase = "error"; app.err = String(e.message ?? e);
+    } catch (e: unknown) {
+      app.phase = "error"; app.err = String(e instanceof Error ? e.message : e);
     }
   }
   async function stop() { await request("convert.cancel"); }
 
   onMount(() => {
     let unDrag: (() => void) | null = null;
+    try { getVersion().then((v) => (ver = `v${v}`)); } catch { /* 版本显示失败不影响功能 */ }
     autoUpdate().then((v) => v && alert(`已更新到 v${v}，重启后生效`));
     (async () => {
       try { await startCore(); } catch { coreDown = true; }
@@ -66,6 +70,7 @@
             } catch { /* 非目录或读取失败，忽略 */ }
           }
         }
+        page = "home";
       };
       unDrag = await getCurrentWebview().onDragDropEvent((ev: any) => {
         const p = ev.payload;
@@ -106,76 +111,102 @@
   });
 </script>
 
-{#if coreDown}
-  <div class="corebar">转换引擎未启动，请重启应用；若持续出现请重新安装。
-    <button class="retry" onclick={() => { coreDown = false; startCore().catch(() => (coreDown = true)); }}>重试</button>
-  </div>
-{/if}
-
-<main class="wrap">
-  <header>
-    <div class="brand">
-      <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
-        <rect width="64" height="64" rx="14" fill="#4f5bd5"/>
-        <path d="M22 12 h14 l8 8 v30 a4 4 0 0 1 -4 4 h-18 a4 4 0 0 1 -4 -4 v-34 a4 4 0 0 1 4 -4 z" fill="#f6f3e7"/>
-        <path d="M36 12 l8 8 h-8 z" fill="#c6ccee"/>
-        <path d="M27 25 l14 8 -14 8 z" fill="#4f5bd5"/>
-      </svg>
-      Chalkpress
+<div class="shell">
+  {#if coreDown}
+    <div class="corebar">转换引擎未启动，请重启应用；若持续出现请重新安装。
+      <button class="retry" onclick={() => { coreDown = false; startCore().catch(() => (coreDown = true)); }}>重试</button>
     </div>
-    <button class="gear" title="设置" onclick={() => (settingsOpen = true)}>⚙</button>
-  </header>
-
-  {#if app.err && !coreDown}
-    <div class="errbar">✗ {app.err}</div>
   {/if}
 
-  {#if app.phase === "idle"}
-    <section class="hero">
-      <div class="drop" role="button" tabindex="0" onclick={addFiles}>
-        <div class="drop-icon">▶</div>
-        <div class="drop-title">拖入视频，或点击添加</div>
-        <div class="drop-sub">支持 mp4 · mov · mkv · webm 等，可多选或整个文件夹</div>
+  <div class="body">
+    <aside class="side">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+          <rect width="64" height="64" rx="14" fill="#4f5bd5"/>
+          <path d="M22 12 h14 l8 8 v30 a4 4 0 0 1 -4 4 h-18 a4 4 0 0 1 -4 -4 v-34 a4 4 0 0 1 4 -4 z" fill="#f6f3e7"/>
+          <path d="M36 12 l8 8 h-8 z" fill="#c6ccee"/>
+          <path d="M27 25 l14 8 -14 8 z" fill="#4f5bd5"/>
+        </svg>
+        <span>Chalkpress</span>
       </div>
-      <button class="ghost" onclick={addFolder}>添加文件夹</button>
 
-      {#if app.videos.length}
-        <div class="card">
-          {#each app.videos as v (v)}
-            <div class="vrow">
-              <span class="vname">{v.split(/[\\/]/).pop()}</span>
-              <span class="vsize">{v}</span>
-              <button class="x" onclick={() => removeVideo(v)}>✕</button>
+      <nav class="navi">
+        <button class="nav" class:active={page === "home"} onclick={() => (page = "home")}>
+          <span class="ico">▶</span> 首页
+        </button>
+        <button class="nav" class:active={page === "settings"} onclick={() => (page = "settings")}>
+          <span class="ico">⚙</span> 设置
+        </button>
+      </nav>
+
+      <div class="foot">{ver}</div>
+    </aside>
+
+    <main class="wrap">
+      {#if page === "settings"}
+        <SettingsPane />
+      {:else if app.phase === "idle"}
+        <section class="hero">
+          <div class="drop" role="button" tabindex="0" onclick={addFiles}
+               onkeydown={(e) => (e.key === "Enter" || e.key === " ") && addFiles()}>
+            <div class="drop-icon">▶</div>
+            <div class="drop-title">拖入视频，或点击添加</div>
+            <div class="drop-sub">支持 mp4 · mov · mkv · webm 等，可多选或整个文件夹</div>
+          </div>
+          <button class="ghost" onclick={addFolder}>添加文件夹</button>
+
+          {#if app.videos.length}
+            <div class="card">
+              {#each app.videos as v (v)}
+                <div class="vrow">
+                  <span class="vname">{v.split(/[\\/]/).pop()}</span>
+                  <span class="vsize">{v}</span>
+                  <button class="x" onclick={() => removeVideo(v)}>✕</button>
+                </div>
+              {/each}
+              <div class="vsum">{app.videos.length} 个视频 · 讲义生成在各自视频所在文件夹</div>
             </div>
-          {/each}
-          <div class="vsum">{app.videos.length} 个视频 · 讲义生成在各自视频所在文件夹</div>
-        </div>
-        <button class="primary" onclick={start}>开始转换</button>
+            <button class="primary" onclick={start}>开始转换</button>
+          {/if}
+        </section>
+      {:else if app.phase === "running"}
+        <RunPanel {stop} />
+      {:else if app.phase === "done"}
+        <ResultsCard />
+      {:else}
+        <section class="hero">
+          {#if app.err}<p class="err">✗ {app.err}</p>{/if}
+          <button class="primary" onclick={() => (app.phase = app.results.length ? "done" : "idle")}>返回</button>
+        </section>
       {/if}
-    </section>
-  {:else if app.phase === "running"}
-    <RunPanel {stop} />
-  {:else if app.phase === "done"}
-    <ResultsCard />
-  {:else}
-    <section class="hero">
-      <p class="err">✗ {app.err}</p>
-      <button class="primary" onclick={() => (app.phase = app.results.length ? "done" : "idle")}>返回</button>
-    </section>
-  {/if}
-</main>
-
-{#if settingsOpen}
-  <SettingsSheet onClose={() => (settingsOpen = false)} />
-{/if}
+    </main>
+  </div>
+</div>
 
 <style>
-  .wrap { max-width: 760px; margin: 0 auto; padding: 16px 24px 32px; }
-  header { display: flex; align-items: center; justify-content: space-between; }
-  .brand { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .shell { display: flex; flex-direction: column; height: 100vh; }
+  .corebar { background: var(--red); color: #fff; text-align: center; padding: 6px; font-size: 13px; }
+  .retry { margin-left: 10px; background: #fff; color: var(--red); border: 1px solid #fff;
+           border-radius: 6px; padding: 1px 12px; font-size: 12px; cursor: pointer; }
+  .body { display: flex; flex: 1; min-height: 0; }
+
+  .side { width: 156px; flex: none; border-right: 1px solid var(--line); background: var(--card);
+          padding: 16px 10px 12px; display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px;
+           padding: 0 8px 16px; }
   .logo { width: 22px; height: 22px; display: inline-block; }
-  .gear { border: 0; background: transparent; font-size: 18px; cursor: pointer; color: var(--ink2); }
-  .hero { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 8vh; }
+  .navi { display: flex; flex-direction: column; gap: 4px; }
+  .nav { display: flex; align-items: center; gap: 8px; text-align: left; border: 0;
+         background: transparent; padding: 10px 12px; border-radius: var(--radius);
+         cursor: pointer; font-size: 14px; color: var(--ink2); }
+  .nav:hover { background: var(--line); }
+  .nav.active { background: var(--accent); color: #fff; font-weight: 600; }
+  .nav .ico { font-size: 12px; }
+  .foot { margin-top: auto; padding: 8px; color: var(--faint); font-size: 11px; }
+
+  .wrap { flex: 1; min-width: 0; overflow-y: auto; padding: 18px 24px 32px; }
+
+  .hero { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 6vh; }
   .drop { width: 100%; background: var(--card); border: 1.5px dashed var(--faint); border-radius: var(--radius);
           padding: 44px 0 38px; text-align: center; cursor: pointer; transition: border-color .15s; }
   .drop:hover { border-color: var(--accent); }
@@ -197,8 +228,4 @@
   .ghost { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
            padding: 8px 18px; cursor: pointer; }
   .err { color: var(--red); }
-  .corebar { background: var(--red); color: #fff; text-align: center; padding: 6px; font-size: 13px; }
-  .retry { margin-left: 10px; background: #fff; color: var(--red); border: 1px solid #fff;
-           border-radius: 6px; padding: 1px 12px; font-size: 12px; cursor: pointer; }
-  .errbar { background: var(--red); color: #fff; text-align: center; padding: 6px; font-size: 13px; border-radius: 8px; margin-top: 10px; }
 </style>
