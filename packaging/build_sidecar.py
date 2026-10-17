@@ -15,7 +15,9 @@ MODEL_DIR = ROOT / "build" / "model"
 OUT = ROOT / "src-tauri" / "binaries"
 
 
-def target_triple() -> str:
+def target_triple(override: str | None = None) -> str:
+    if override:
+        return override
     out = subprocess.check_output(["rustc", "-vV"], text=True)
     return next(l.split(": ", 1)[1].strip() for l in out.splitlines()
                 if l.startswith("host:"))
@@ -42,11 +44,12 @@ def ensure_model():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dev", action="store_true")
+    ap.add_argument("--triple", help="覆盖目标三元组（无 rustc 的宿主上交叉构建 sidecar 用）")
     args = ap.parse_args()
     ensure_model()
     OUT.mkdir(parents=True, exist_ok=True)
     sep = ";" if sys.platform == "win32" else ":"
-    triple = target_triple()
+    triple = target_triple(args.triple)
     # ipc.py 用相对导入（from .config import ...），不能作为顶层脚本打包；
     # 改打包一个以包路径导入的入口 stub
     work = ROOT / "build" / "pyi"
