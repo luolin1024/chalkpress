@@ -46,6 +46,16 @@
   };
 
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** 打开日志文件夹：目录可能尚未创建（从未开启日志转换过），先经 core 建目录并清理过期日志。 */
+  async function openLogs(): Promise<void> {
+    try {
+      const r = await request<{ dir: string }>("logs.prepare");
+      await openPath(r.dir);
+    } catch (e) {
+      console.error("open logs:", e);
+    }
+  }
   function touch() {
     saved = false;
     if (saveTimer) clearTimeout(saveTimer);
@@ -163,7 +173,7 @@
       <h3>日志</h3>
       <label class="row">保留运行日志
         <input type="checkbox" bind:checked={s.app.keep_log} onchange={touch} /></label>
-      <button class="ghost" onclick={() => openPath(s.logs_dir)}>打开日志文件夹</button>
+      <button class="ghost" onclick={openLogs}>打开日志文件夹</button>
     </section>
 
     <section>
