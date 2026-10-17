@@ -45,6 +45,10 @@ fn core_path() -> Result<std::path::PathBuf, String> {
         .ok()
         .and_then(|p| p.parent().map(|d| d.to_path_buf()))
         .ok_or("无法定位应用目录")?;
+    // Windows 上 Tauri externalBin 落位为 chalkpress-core.exe
+    #[cfg(windows)]
+    let p = dir.join("chalkpress-core.exe");
+    #[cfg(not(windows))]
     let p = dir.join("chalkpress-core");
     if p.is_file() {
         Ok(p)
@@ -54,12 +58,17 @@ fn core_path() -> Result<std::path::PathBuf, String> {
 }
 
 fn spawn_core() -> Result<Child, String> {
-    Command::new(core_path()?)
-        .stdin(Stdio::piped())
+    let mut cmd = Command::new(core_path()?);
+    cmd.stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|e| format!("拉起 core 失败：{e}"))
+        .stderr(Stdio::null());
+    // core 是控制台子系统程序，Windows 下不设此标志会弹出黑色控制台窗口
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    cmd.spawn().map_err(|e| format!("拉起 core 失败：{e}"))
 }
 
 fn write_line(state: &SharedCore, line: &str) -> Result<(), String> {
