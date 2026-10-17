@@ -6,9 +6,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .pipeline import Options, run_batch
-
-VIDEO_EXTS = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".flv", ".ts"}
+from .pipeline import Options, VIDEO_EXTS, run_batch
 
 
 def expand_videos(paths: list[Path]) -> list[Path]:

@@ -13,6 +13,10 @@ from pathlib import Path
 from . import align, analyze, asr, correct, keyframes, pdf, terms, textproc
 from .config import lang_pack, load_config_file, load_llm_config
 
+# 视频扩展名白名单：CLI 目录展开 / IPC 文件夹枚举共用；TS 侧（对话框过滤器与
+# 拖拽正则）跨语言无法共享，改清单时需同步 src/App.svelte 的两处。
+VIDEO_EXTS = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".flv", ".ts"}
+
 
 @dataclass
 class Options:

@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import shutil
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -83,6 +84,30 @@ def config_path() -> Path:
 def logs_dir() -> Path:
     """运行日志目录（保留开关关闭时不会创建）。"""
     return config_dir() / "logs"
+
+
+LOG_RETENTION_DAYS = 14
+
+
+def prune_logs(days: int = LOG_RETENTION_DAYS) -> int:
+    """删除超过保留期（默认 14 天）的运行日志，返回删除数。
+
+    每次转换启动（_open_logfile）与设置页打开日志文件夹（logs.prepare）时自动调用，
+    无需用户手动清理。
+    """
+    d = logs_dir()
+    if not d.is_dir():
+        return 0
+    cutoff = time.time() - days * 86400
+    removed = 0
+    for f in d.glob("chalkpress-*.log"):
+        try:
+            if f.stat().st_mtime < cutoff:
+                f.unlink()
+                removed += 1
+        except OSError:
+            pass
+    return removed
 
 
 def _migrate_old_config() -> None:

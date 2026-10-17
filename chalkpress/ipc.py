@@ -15,9 +15,10 @@ from .config import (
     load_llm_config,
     logs_dir,
     normalize_settings,
+    prune_logs,
     save_config_file,
 )
-from .pipeline import Options, run_batch
+from .pipeline import Options, VIDEO_EXTS, run_batch
 
 log = logging.getLogger("chalkpress.ipc")
 
@@ -89,11 +90,14 @@ class IPCServer:
         if method == "convert.cancel":
             self.cancel.set()
             return {}
+        if method == "logs.prepare":
+            d = logs_dir()
+            d.mkdir(parents=True, exist_ok=True)
+            return {"dir": str(d), "pruned": prune_logs()}
         if method == "fs.list_videos":
             d = Path(params["dir"]).expanduser()
             return {"videos": sorted(str(p) for p in d.iterdir()
-                                     if p.suffix.lower() in {".mp4", ".mov", ".mkv", ".webm",
-                                                             ".avi", ".m4v", ".flv", ".ts"})}
+                                     if p.suffix.lower() in VIDEO_EXTS)}
         raise KeyError(f"unknown method: {method}")
 
     # ---------- 转换 ----------
@@ -112,6 +116,7 @@ class IPCServer:
             zh_script=o.get("zh_script", "auto"),
             auto_correct=o.get("auto_correct", True),
             term_fix=o.get("term_fix"),
+            asr_backend=o.get("asr_backend"),
             asr_model=o.get("asr_model"),
             api_base=o.get("api_base"),
             api_key=o.get("api_key"),
@@ -145,6 +150,7 @@ class IPCServer:
         try:
             d = logs_dir()
             d.mkdir(parents=True, exist_ok=True)
+            prune_logs()
             self._fh = open(d / f"chalkpress-{time.strftime('%Y%m%d-%H%M%S')}.log",
                             "a", encoding="utf-8")
         except OSError:
