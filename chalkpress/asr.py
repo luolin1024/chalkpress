@@ -12,7 +12,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .binaries import ffmpeg
+from .binaries import CREATE_NO_WINDOW, ffmpeg
 
 _MLX_REPO = "mlx-community/whisper-{}-mlx"
 
@@ -23,7 +23,7 @@ def extract_audio(video: Path, wav: Path) -> Path:
          "-i", str(video), "-vn", "-ac", "1", "-ar", "16000",
          "-c:a", "pcm_s16le", str(wav)],
         check=True, capture_output=True, text=True,
-        encoding="utf-8", errors="replace",
+        encoding="utf-8", errors="replace", creationflags=CREATE_NO_WINDOW,
     )
     return wav
 

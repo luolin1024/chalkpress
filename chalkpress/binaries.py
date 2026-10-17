@@ -11,6 +11,9 @@ import shutil
 from functools import lru_cache
 from pathlib import Path
 
+# Windows 下控制台子系统子进程会弹出黑色窗口；POSIX 上传 0 合法且无副作用
+CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
+
 
 @lru_cache(maxsize=None)
 def ffmpeg() -> str:

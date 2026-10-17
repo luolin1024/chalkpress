@@ -14,7 +14,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from .binaries import ffmpeg
+from .binaries import CREATE_NO_WINDOW, ffmpeg
 
 
 @dataclass
@@ -28,6 +28,7 @@ def parse_duration_ffmpeg(video: Path) -> float:
     proc = subprocess.run(
         [ffmpeg(), "-hide_banner", "-i", str(video), "-f", "null", "-"],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
+        creationflags=CREATE_NO_WINDOW,
     )
     m = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", proc.stderr)
     if not m:
@@ -43,6 +44,7 @@ def detect_cuts(video: Path, threshold: float) -> list[float]:
          "-vf", f"scale=320:-2,select='gt(scene,{threshold})',showinfo",
          "-f", "null", "-"],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
+        creationflags=CREATE_NO_WINDOW,
     )
     return [float(x) for x in re.findall(r"pts_time:(\d+(?:\.\d+)?)", proc.stderr)]
 
@@ -89,7 +91,7 @@ def extract_frames(video: Path, times, frames_dir: Path, dup_bits: int = 12) -> 
              "-ss", f"{ts:.3f}", "-i", str(video),
              "-frames:v", "1", "-q:v", "2", str(path)],
             capture_output=True, text=True,
-            encoding="utf-8", errors="replace",
+            encoding="utf-8", errors="replace", creationflags=CREATE_NO_WINDOW,
         )
         # 时长来自音轨，可能略超视频流末尾：seek 落空时 ffmpeg 不产出帧，跳过该时间点
         if proc.returncode != 0 or not path.is_file() or path.stat().st_size == 0:
