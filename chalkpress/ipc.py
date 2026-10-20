@@ -229,16 +229,20 @@ class IPCServer:
                 changed = True
         if changed:
             self._save_tasks(tasks)
-        if ev == "video_done":
-            self._record_history(name, kw)
+        if ev in ("video_done", "video_paused", "video_error"):
+            self._record_history(name, kw, status)
 
-    def _record_history(self, name: str, kw: dict):
-        """成功完成 → 追加转换历史档案（独立于任务删除，保留"转过什么"）。"""
-        from .history import append_history
+    def _record_history(self, name: str, kw: dict, status: str = "done"):
+        """转换动态入档（完成/暂停/失败），独立于任务删除，保留"转过什么"。"""
+        from .history import record_history
         video = next((t["video"] for t in self._load_tasks()
                       if Path(t["video"]).name == name), "")
-        append_history({"video": video, "name": name,
-                        "outdir": kw.get("outdir") or "",
+        outdir = kw.get("outdir") or ""
+        if not outdir and video:
+            v = Path(video)
+            outdir = str(v.with_name(v.stem + "_讲义"))
+        record_history({"video": video, "name": name, "status": status,
+                        "outdir": outdir,
                         "pages": int(kw.get("pages") or 0),
                         "summary": bool(kw.get("summary")),
                         "finished_at": int(time.time())})

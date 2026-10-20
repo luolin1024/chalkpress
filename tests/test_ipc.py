@@ -96,8 +96,7 @@ def test_video_done_appends_history(tmp_path, monkeypatch):
     s._track("video_start", {"name": "a.mp4"})
     s._track("video_done", {"name": "a.mp4", "pages": 12, "summary": True,
                             "outdir": "/x/a_讲义"})
-    resp = s.handle({"id": 2, "method": "history.list"})
-    h = resp["result"]["history"]
+    h = s.handle({"id": 2, "method": "history.list"})["result"]["history"]
     assert len(h) == 1
     assert h[0]["name"] == "a.mp4" and h[0]["pages"] == 12
     assert h[0]["summary"] is True and h[0]["exists"] is False  # outdir 不存在
@@ -107,12 +106,32 @@ def test_video_done_appends_history(tmp_path, monkeypatch):
     assert s.handle({"id": 6, "method": "history.list"})["result"]["history"] == []
 
 
-def test_history_append_caps_and_orders(tmp_path, monkeypatch):
+
+def test_paused_record_superseded_by_done(tmp_path, monkeypatch):
+    """暂停入档；续跑完成后覆盖同视频的暂停中间态。"""
+    import chalkpress.history as history_mod
+    import chalkpress.ipc as ipc_mod
+    monkeypatch.setattr(ipc_mod, "tasks_path", lambda: tmp_path / "tasks.json")
+    monkeypatch.setattr(history_mod, "history_path", lambda: tmp_path / "history.json")
+    s = make_server()
+    s.handle({"id": 1, "method": "tasks.add", "params": {"videos": ["/x/b.mp4"]}})
+    s._track("video_start", {"name": "b.mp4"})
+    s._track("video_paused", {"name": "b.mp4"})  # 无 outdir → 从任务路径推导
+    h = s.handle({"id": 2, "method": "history.list"})["result"]["history"]
+    assert len(h) == 1 and h[0]["status"] == "paused"
+    assert h[0]["outdir"] == "/x/b_讲义"  # 由任务视频路径推导
+    s._track("video_done", {"name": "b.mp4", "pages": 7, "summary": False,
+                            "outdir": "/x/b_讲义"})
+    h = s.handle({"id": 3, "method": "history.list"})["result"]["history"]
+    assert len(h) == 1  # 暂停中间态被覆盖
+    assert h[0]["status"] == "done" and h[0]["pages"] == 7
+
+def test_history_record_caps_and_orders(tmp_path, monkeypatch):
     import chalkpress.history as history_mod
     monkeypatch.setattr(history_mod, "history_path", lambda: tmp_path / "history.json")
     monkeypatch.setattr(history_mod, "HISTORY_MAX", 3)
     for i in range(5):
-        history_mod.append_history({"name": f"v{i}", "finished_at": i})
+        history_mod.record_history({"name": f"v{i}", "finished_at": i})
     names = [h["name"] for h in history_mod.list_history()]
     assert names == ["v4", "v3", "v2"]  # 最新在前，超限丢最旧
 

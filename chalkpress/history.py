@@ -22,9 +22,15 @@ def load_history() -> list:
         return []
 
 
-def append_history(entry: dict) -> None:
-    """追加一条记录（最新在前），超限截断最旧的。"""
+def record_history(entry: dict) -> None:
+    """入档（最新在前，上限截断）。
+
+    完成态覆盖同视频此前的暂停/失败中间态；同一视频多次重转的完成记录均保留。
+    """
     entries = load_history()
+    if entry.get("status", "done") == "done" and entry.get("video"):
+        entries = [h for h in entries if not (
+            h.get("video") == entry["video"] and h.get("status", "done") != "done")]
     entries.insert(0, entry)
     p = history_path()
     p.parent.mkdir(parents=True, exist_ok=True)

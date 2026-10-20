@@ -1,12 +1,15 @@
 <!-- src/components/HistoryCard.svelte -->
-<!-- 转换历史档案：跨会话保留"转过什么"，独立于任务队列（删任务不清历史）。 -->
+<!-- 转换历史档案：跨会话保留"转过什么"（含暂停/失败动态），独立于任务队列（删任务不清历史）。 -->
 <script lang="ts">
   import { onMount } from "svelte";
   import { openPath } from "@tauri-apps/plugin-opener";
   import { request } from "../lib/ipc";
 
   type Item = { video: string; name: string; outdir: string; pages: number;
-                summary: boolean; finished_at: number; exists: boolean };
+                summary: boolean; finished_at: number; exists: boolean; status?: string };
+
+  const CHIP: Record<string, string> = { paused: "已暂停", failed: "失败" };
+  const st = (h: Item): string => h.status ?? "done";
 
   let items = $state<Item[] | null>(null);
 
@@ -36,6 +39,7 @@
       </div>
       {#each items as h (h.video + h.finished_at)}
         <div class="row">
+          {#if CHIP[st(h)]}<span class="chip {st(h)}">{CHIP[st(h)]}</span>{/if}
           <span class="meta">
             <span class="name">{h.name}</span>
             <span class="info">
@@ -43,7 +47,7 @@
               {#if !h.exists}<span class="gone">· 产物已删除</span>{/if}
             </span>
           </span>
-          {#if h.exists}
+          {#if h.exists && st(h) === "done"}
             <button class="open" title={h.outdir} onclick={() => openPath(h.outdir)}>打开</button>
           {/if}
         </div>
@@ -64,6 +68,9 @@
   .del:hover { color: var(--red); background: var(--bg); }
   .row { display: flex; align-items: center; gap: 10px; padding: 9px 0;
          border-top: 1px solid var(--line); }
+  .chip { flex: none; font-size: 11px; border-radius: 99px; padding: 1px 9px; }
+  .chip.paused { color: #8a6d1a; border: 1px solid #efe3bd; background: #fbf4dd; }
+  .chip.failed { color: var(--red); border: 1px solid #f0d3d1; background: #fbeeee; }
   .meta { flex: 1; min-width: 0; }
   .name { display: block; font-size: 13px; font-weight: 500;
           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
