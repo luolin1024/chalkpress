@@ -2,6 +2,7 @@
 <script lang="ts">
   import { openPath } from "@tauri-apps/plugin-opener";
   import { app } from "../lib/state.svelte";
+  import HistoryCard from "./HistoryCard.svelte";
 
   const pages = $derived(app.results.reduce((n, r) => n + r.pages, 0));
 </script>
@@ -23,6 +24,7 @@
       继续转换新的视频
     </button>
   </div>
+  <HistoryCard />
 </section>
 
 <style>

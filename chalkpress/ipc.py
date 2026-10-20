@@ -108,6 +108,13 @@ class IPCServer:
             d = logs_dir()
             d.mkdir(parents=True, exist_ok=True)
             return {"dir": str(d), "pruned": prune_logs()}
+        if method == "history.list":
+            from .history import list_history
+            return {"history": list_history()}
+        if method == "history.clear":
+            from .history import clear_history
+            clear_history()
+            return {}
         if method == "fs.list_videos":
             d = Path(params["dir"]).expanduser()
             return {"videos": sorted(str(p) for p in d.iterdir()
@@ -222,6 +229,19 @@ class IPCServer:
                 changed = True
         if changed:
             self._save_tasks(tasks)
+        if ev == "video_done":
+            self._record_history(name, kw)
+
+    def _record_history(self, name: str, kw: dict):
+        """成功完成 → 追加转换历史档案（独立于任务删除，保留"转过什么"）。"""
+        from .history import append_history
+        video = next((t["video"] for t in self._load_tasks()
+                      if Path(t["video"]).name == name), "")
+        append_history({"video": video, "name": name,
+                        "outdir": kw.get("outdir") or "",
+                        "pages": int(kw.get("pages") or 0),
+                        "summary": bool(kw.get("summary")),
+                        "finished_at": int(time.time())})
 
     def _open_logfile(self, keep_log: bool):
         if not keep_log:

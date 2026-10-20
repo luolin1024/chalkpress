@@ -10,6 +10,7 @@
   import { autoUpdate } from "./lib/updater";
   import RunPanel from "./components/RunPanel.svelte";
   import ResultsCard from "./components/ResultsCard.svelte";
+  import HistoryCard from "./components/HistoryCard.svelte";
   import SettingsPane from "./components/SettingsPane.svelte";
 
   type Page = "home" | "settings";
@@ -205,6 +206,7 @@
               </button>
             {/if}
           {/if}
+          <HistoryCard />
           {#if app.err}<p class="err">✗ {app.err}</p>{/if}
         </section>
       {/if}

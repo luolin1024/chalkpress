@@ -91,6 +91,11 @@ def tasks_path() -> Path:
     return config_dir() / "tasks.json"
 
 
+def history_path() -> Path:
+    """转换历史档案（成功完成的转换记录，独立于任务队列，删任务不清历史）。"""
+    return config_dir() / "history.json"
+
+
 LOG_RETENTION_DAYS = 14
 
 
