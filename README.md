@@ -15,6 +15,8 @@
 - **字幕随页** —— Whisper 本地转写，字幕对齐到所在画面的时间窗，页面即上下文
 - **AI 总结开篇** —— 可选接入任意 OpenAI 兼容视觉模型，生成结构化学习笔记作为 PDF 首页
 - **全程本地** —— 转写、抽帧在你电脑上完成；视频不上传
+- **场景术语自适应** —— 开启术语修正后，先识别课程所属领域场景，把易听错的专业术语缓存到本地；同一场景下次直接复用（可删除）
+- **暂停与断点续跑** —— 转换可在阶段边界暂停，已完成部分自动保存；点继续自动跳过，删除任务才是真正移除
 - **零配置上手** —— 拖入视频、点开始，其余全部自动
 
 ## 下载安装
@@ -46,17 +48,28 @@ chalkpress 视频.mp4 --summary-lang zh-en  # 输出中英对照
 chalkpress 目录/                          # 批量：递归展开目录内全部视频
 chalkpress 视频.mp4 --reuse-srt 已有.srt   # 已有字幕时跳过转写
 chalkpress 视频.mp4 --scene-threshold 0.15 --min-gap 5   # 画面变化快时调大阈值
+chalkpress 视频.mp4 --layout grouped     # 分类输出：markdown/ pdf/ attachments/
 chalkpress 视频.mp4 --zh-script traditional --no-correct  # 繁体输出、关闭校对
+chalkpress 视频.mp4 --speed turbo    # 转写并发：standard=4 线程 / fast=8 / turbo=全部核心
 ```
 
-输出结构（默认 `<视频名>_讲义/`）：
+输出结构（默认 `<视频名>_讲义/`，`--layout original`）：
 
 ```
 ├── <名>.pdf            # 首页=AI 总结，后续每页=关键帧+该窗字幕
 ├── <名>.srt            # 全部字幕（可独立使用）
-├── <名>.aligned.md     # 字幕×关键帧对照（Markdown）
-├── <名>.summary.md     # AI 总结
+├── <名>.aligned.md     # 字幕×关键帧对照（内嵌关键帧图片）
+├── <名>.summary.md     # AI 总结（末尾附关键帧图片廊）
 └── keyframes/          # 关键帧图片
+```
+
+`--layout grouped` 按类型分目录存放（md 内的图片相对链接自动适配）：
+
+```
+├── <名>.srt
+├── markdown/           # <名>.aligned.md + <名>.summary.md
+├── pdf/                # <名>.pdf
+└── attachments/        # 关键帧图片
 ```
 
 ## AI 分析（可选）
@@ -86,7 +99,6 @@ chalkpress 视频.mp4        # CLI
 
 # 构建 GUI（先打 sidecar，再打桌面应用）
 corepack pnpm i
-python packaging/build_sidecar.py
 corepack pnpm tauri build
 ```
 
@@ -96,7 +108,7 @@ CI（`.github/workflows/build-binaries.yml`）在推送 main / 打 `v*` tag 时�
 
 - **流水线**：`Options → run()/run_batch()`，五段处理链，单个视频失败不中断批量
 - **桌面 GUI**：Tauri 2（零配置首页 + 设置中心 + 应用内自动更新），Python 流水线作为 PyInstaller sidecar 内嵌
-- **本地 ASR**：faster-whisper（CPU int8，全平台）；macOS 可选 mlx-whisper 加速；whisper 支持 90+ 语种
+- **本地 ASR**：faster-whisper（CPU int8，全平台）；macOS Apple 芯片自动选用 mlx-whisper GPU 加速；转写并发三档（标准/快速/极速）；whisper 支持 90+ 语种
 - **简繁规范**：OpenCC 确定性转换；`auto` 按系统 locale 判定
 - **可检索 PDF**：reportlab 生成，帧为图、字幕/总结为真实文本层；CJK 字体解析链三平台不缺字
 - **配置链**：显式参数 > `CHALKPRESS_*` 环境变量 > config.toml > 内置默认

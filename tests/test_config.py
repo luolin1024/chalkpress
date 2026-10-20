@@ -5,6 +5,7 @@ from chalkpress.config import normalize_settings
 def test_normalize_defaults():
     cfg = normalize_settings({})
     assert cfg == {"options": {"summary_lang": "zh", "zh_script": "auto",
+                               "speed": "standard", "output_layout": "original",
                                "auto_correct": True, "term_fix": False},
                    "app": {"keep_log": True}}
 
@@ -34,3 +35,11 @@ def test_normalize_none_fields_dropped():
     cfg = normalize_settings({"options": {"asr_model": None, "min_gap": None}})
     assert "asr_model" not in cfg["options"]
     assert "min_gap" not in cfg["options"]
+
+
+def test_normalize_output_layout_fallback():
+    """output_layout 仅接受 original/grouped，其他值回退 original。"""
+    bad = normalize_settings({"options": {"output_layout": "flat"}})
+    assert bad["options"]["output_layout"] == "original"
+    ok = normalize_settings({"options": {"output_layout": "grouped"}})
+    assert ok["options"]["output_layout"] == "grouped"

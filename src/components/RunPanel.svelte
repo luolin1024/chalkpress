@@ -1,7 +1,8 @@
 <!-- src/components/RunPanel.svelte -->
 <script lang="ts">
   import { app, STAGES } from "../lib/state.svelte";
-  let { stop }: { stop: () => void } = $props();
+  let { onPause, onResume, paused = false }:
+      { onPause: () => void; onResume: () => void; paused?: boolean } = $props();
 </script>
 
 <section class="hero">
@@ -23,7 +24,12 @@
       <p class="pages">已生成 {app.run.pages} 页</p>
     {/if}
   </div>
-  <button class="ghost" onclick={stop}>停止（当前视频完成后）</button>
+  {#if paused}
+    <p class="pausehint">已暂停 · 已完成的阶段已保存，继续时自动跳过</p>
+    <button class="primary" onclick={onResume}>继续转换</button>
+  {:else}
+    <button class="ghost" onclick={onPause}>暂停（阶段完成后生效）</button>
+  {/if}
 </section>
 
 <style>
@@ -41,6 +47,11 @@
   .fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width .3s; }
   .vbar { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink2); }
   .pages { color: var(--ink2); font-size: 12px; }
+  .pausehint { margin: 0; text-align: center; color: var(--ink2); font-size: 12.5px; }
   .ghost { align-self: center; background: var(--card); border: 1px solid var(--line);
            border-radius: 10px; padding: 8px 18px; cursor: pointer; }
+  .ghost:hover { border-color: var(--faint); }
+  .primary { background: var(--accent); color: #fff; border: 0; border-radius: 10px;
+             padding: 11px 28px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .primary:hover { background: var(--accent-dk); }
 </style>

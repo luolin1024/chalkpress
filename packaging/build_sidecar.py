@@ -5,6 +5,7 @@
 --dev 模式以 chalkpress-core-dev 命名输出（开发用）；默认输出 chalkpress-core-<target-triple> 供 Tauri externalBin 使用。
 """
 import argparse
+import importlib.util
 import subprocess
 import sys
 import time
@@ -48,6 +49,12 @@ def main():
     args = ap.parse_args()
     ensure_model()
     OUT.mkdir(parents=True, exist_ok=True)
+    collects = ["faster_whisper", "ctranslate2", "imageio_ffmpeg", "onnxruntime",
+                "tokenizers", "av", "pypinyin"]
+    # mlx-whisper 仅 macOS 安装（requirements 平台受限）：装了才收录，
+    # 供 asr.best_backend() 在 Apple 芯片上自动选用 GPU 加速引擎
+    if importlib.util.find_spec("mlx_whisper"):
+        collects += ["mlx_whisper", "mlx"]
     sep = ";" if sys.platform == "win32" else ":"
     triple = target_triple(args.triple)
     # ipc.py 用相对导入（from .config import ...），不能作为顶层脚本打包；
@@ -59,10 +66,7 @@ def main():
     subprocess.run([
         sys.executable, "-m", "PyInstaller", "--noconfirm", "--onefile",
         "--name", f"chalkpress-core-{triple}" if not args.dev else "chalkpress-core-dev",
-        "--collect-all", "faster_whisper", "--collect-all", "ctranslate2",
-        "--collect-all", "imageio_ffmpeg", "--collect-all", "onnxruntime",
-        "--collect-all", "tokenizers", "--collect-all", "av",
-        "--collect-all", "pypinyin",
+        *[arg for pkg in collects for arg in ("--collect-all", pkg)],
         "--add-data", f"{MODEL_DIR}{sep}models/faster-whisper-small",
         "--distpath", str(OUT), "--workpath", str(work),
         "--specpath", str(work), "--paths", str(ROOT),

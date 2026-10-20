@@ -56,6 +56,9 @@ jobs:
           uv venv .venv --python 3.13 --allow-existing
           uv pip install -e . pyinstaller huggingface_hub --python .venv/bin/python || \
           uv pip install -e . pyinstaller huggingface_hub --python .venv/Scripts/python.exe
+      - name: Install mlx-whisper (macOS sidecar 加速引擎，供平台自动选用)
+        if: runner.os == 'macOS'
+        run: uv pip install mlx-whisper --python .venv/bin/python
 
       - name: Build sidecar
         shell: bash

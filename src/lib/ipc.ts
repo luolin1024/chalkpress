@@ -19,6 +19,7 @@ export type CoreEvent = {
   error?: string;
   key: string;
   ok: number;
+  tasks?: { video: string; status: "pending" | "running" | "paused" | "done" | "failed" }[];
   _seq: number;
 };
 

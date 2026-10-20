@@ -16,6 +16,7 @@ UI shells            cli.py (argparse)  /  gui.py (tkinter, sidebar + 转换/设
 Orchestrator         pipeline.run(Options, log, progress) -> Result ; pipeline.run_batch()
   ↓ 5 numbered stages (+ progress events)
 Stage modules        asr → correct → textproc → keyframes → align → analyze → pdf
+                     (+ scenes.py: LLM 场景术语缓存，term_fix 开启且配置 LLM 时在校对前应用)
 Infrastructure       config.py (LLMConfig/LangPack/config.toml/logs_dir)  binaries.py (ffmpeg)
                      update.py (GitHub Releases check + asset download)
 ```
@@ -28,7 +29,7 @@ Infrastructure       config.py (LLMConfig/LangPack/config.toml/logs_dir)  binari
 4. **LLM summary** — `analyze.summarize`（关键帧先经 `_frame_data_url` 压缩重编码再 base64）+ zh/en prompt template; **skipped gracefully when no LLM config**; on 400/413/415/422 retries text-only.
 5. **PDF** — `pdf.build_pdf` (reportlab landscape A4; CJK font chain: `CHALKPRESS_FONT` → `chalkpress/fonts/` → platform list → `STSong-Light` CID).
 
-Output per video: `<stem>_讲义/` containing `<stem>.pdf|.srt|.aligned.md|.summary.md` and `keyframes/NN_MMmSSs.jpg` (plus temp `audio.wav`, deleted unless `--keep-wav`).
+Output per video: `<stem>_讲义/` containing `<stem>.pdf|.srt|.aligned.md|.summary.md` and `keyframes/NN_MMmSSs.jpg` (plus temp `audio.wav`, deleted unless `--keep-wav`). `Options.output_layout` (`original` default | `grouped`) switches to categorized subdirs — `markdown/` (both `.md`), `pdf/`, `attachments/` (frames; srt stays at root); `pipeline._layout_dirs` is the single source of truth. Both md files embed keyframe images via relative links computed from the md file's dir (`align.window_markdown`/`align.frames_gallery` take `img_rel`).
 
 **Intermediate data shapes** (the cross-module contract):
 - segment dict: `{"start": float, "end": float, "text": str}` — mutated in place by `correct.py` and the textproc loop.

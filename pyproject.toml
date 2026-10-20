@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chalkpress"
-version = "0.3.1"
+version = "0.4.0"
 description = "Chalkpress：讲座视频 → 讲义 PDF（关键帧 + 字幕 + AI 总结），跨平台 CLI 与 GUI"
 readme = "README.md"
 license = { file = "LICENSE" }

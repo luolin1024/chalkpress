@@ -30,11 +30,17 @@ def build_parser() -> argparse.ArgumentParser:
                    help="输入视频或目录（目录会展开其中全部视频），可传多个")
     p.add_argument("-o", "--outdir", type=Path, default=None,
                    help="输出目录（默认逐视频 <视频名>_讲义/；批量时为 <outdir>/<视频名>/）")
+    p.add_argument("--layout", choices=["original", "grouped"], default=None,
+                   help="输出目录结构：original=平铺在 <名>_讲义/（默认）；"
+                        "grouped=分类子目录 markdown/ pdf/ attachments/")
     p.add_argument("--scene-threshold", type=float, default=None,
                    help="场景切换阈值，越小越敏感（默认 0.08）")
     p.add_argument("--min-gap", type=float, default=None, help="关键帧最小间隔秒（默认 2.0）")
     p.add_argument("--asr-backend", choices=["faster-whisper", "mlx-whisper"], default=None,
-                   help="转写后端；mlx-whisper 仅限 macOS（默认 faster-whisper，全平台）")
+                   help="转写后端；mlx-whisper 仅限 macOS（默认=自动：Apple 芯片选 mlx）")
+    p.add_argument("--speed", choices=["standard", "fast", "turbo"], default=None,
+                   help="转写并发档位：standard=4 线程（默认）/ fast=8 线程 / turbo=全部核心；"
+                        "仅 faster-whisper 后端生效")
     p.add_argument("--asr-model", default=None,
                    help="whisper 模型 tiny/base/small/medium 或 HF repo（默认 small）")
     p.add_argument("--language", default=None,
@@ -68,9 +74,9 @@ def main(argv=None) -> int:
     print(f"共 {len(videos)} 个视频待处理")
     try:
         results = run_batch(Options(
-            video=videos[0], outdir=args.outdir,
+            video=videos[0], outdir=args.outdir, output_layout=args.layout,
             scene_threshold=args.scene_threshold, min_gap=args.min_gap,
-            asr_backend=args.asr_backend, asr_model=args.asr_model,
+            asr_backend=args.asr_backend, asr_model=args.asr_model, speed=args.speed,
             language=args.language, summary_lang=args.summary_lang,
             zh_script=args.zh_script, auto_correct=args.auto_correct,
             term_fix=args.term_fix,

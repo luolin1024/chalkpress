@@ -7,7 +7,9 @@ whisper 原生支持 90+ 语种，--language 传任何 whisper 语言码即可�
 """
 from __future__ import annotations
 
+import importlib.util
 import os
+import platform
 import subprocess
 import sys
 from pathlib import Path
@@ -36,13 +38,34 @@ def wav_duration(wav: Path) -> float:
         return w.getnframes() / float(w.getframerate() or 1)
 
 
-def transcribe(wav: Path, model_size="small", backend="faster-whisper", language=None):
+def best_backend() -> str:
+    """平台最适配引擎：Apple 芯片优先 mlx-whisper（GPU 加速），其余 faster-whisper。
+
+    mlx 未安装（CLI 未装 [mac] extra / sidecar 未收录）时静默回退 faster-whisper。
+    """
+    if (sys.platform == "darwin" and platform.machine() == "arm64"
+            and importlib.util.find_spec("mlx_whisper")):
+        return "mlx-whisper"
+    return "faster-whisper"
+
+
+def resolve_threads(speed: str | None) -> int:
+    """转写并发档位 → faster-whisper CPU 线程数：standard=4 / fast=8 / turbo=全部核心。"""
+    if speed == "fast":
+        return 8
+    if speed == "turbo":
+        return os.cpu_count() or 8
+    return 4
+
+
+def transcribe(wav: Path, model_size="small", backend="faster-whisper", language=None,
+               threads: int = 4):
     """返回 ([{start, end, text}], detected_lang)；language=None 时由 whisper 自动检测。"""
     if backend == "mlx-whisper":
         if sys.platform != "darwin":
             raise RuntimeError("mlx-whisper 后端仅支持 macOS")
         return _mlx(wav, model_size, language)
-    return _faster(wav, model_size, language)
+    return _faster(wav, model_size, language, threads)
 
 
 def resolve_model(model_size: str) -> str:
@@ -57,7 +80,7 @@ def resolve_model(model_size: str) -> str:
     return model_size
 
 
-def _faster(wav: Path, model_size: str, language):
+def _faster(wav: Path, model_size: str, language, threads: int = 4):
     """绕开 PyAV 兼容性问题：wave 解码 → float32 数组直接送 transcribe。
 
     faster-whisper 原生支持 numpy 输入（mono float32 @16k），不再调用
@@ -69,7 +92,8 @@ def _faster(wav: Path, model_size: str, language):
     import numpy as np
     from faster_whisper import WhisperModel
 
-    model = WhisperModel(resolve_model(model_size), device="cpu", compute_type="int8")
+    model = WhisperModel(resolve_model(model_size), device="cpu", compute_type="int8",
+                         cpu_threads=max(1, int(threads)))
     with wave.open(str(wav), "rb") as w:
         audio = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
     audio = audio.astype(np.float32) / 32768.0

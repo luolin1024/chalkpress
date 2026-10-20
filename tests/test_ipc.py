@@ -27,20 +27,57 @@ def test_settings_roundtrip(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "config_path", lambda: tmp_path / "config.toml")
     s = make_server()
     s.handle({"id": 1, "method": "settings.set",
-              "params": {"options": {"summary_lang": "en"}, "app": {}}})
+              "params": {"options": {"summary_lang": "en", "output_layout": "grouped"},
+                         "app": {}}})
     resp = s.handle({"id": 2, "method": "settings.get"})
     assert resp["result"]["options"]["summary_lang"] == "en"
+    assert resp["result"]["options"]["output_layout"] == "grouped"
     assert resp["result"]["llm_configured"] is False
 
 
-def test_convert_start_empty_batch_emits_batch_done():
+def test_convert_start_runs_pending_tasks(tmp_path, monkeypatch):
+    """convert.start 消费任务队列：跑 pending 任务并回写状态为 done。"""
+    import chalkpress.config as config
+    import chalkpress.ipc as ipc_mod
+    monkeypatch.setattr(ipc_mod, "tasks_path", lambda: tmp_path / "tasks.json")
     s = make_server()
-    s.handle({"id": 1, "method": "convert.start", "params": {"videos": []}})
+
+    def fake_batch(opt, videos, log=print, cancel_check=None, progress=None):
+        for i, v in enumerate(videos, 1):
+            progress("video_start", index=i, total=len(videos), name=v.name)
+            progress("video_done", name=v.name)
+        progress("batch_done", ok=len(videos), total=len(videos))
+        return []
+
+    monkeypatch.setattr(ipc_mod, "run_batch", fake_batch)
+    s.handle({"id": 1, "method": "tasks.add",
+              "params": {"videos": ["/x/a.mp4", "/x/b.mp4"]}})
+    s.handle({"id": 2, "method": "convert.start", "params": {}})
     deadline = time.time() + 5
-    while s.worker.is_alive() and time.time() < deadline:
+    while s.worker and s.worker.is_alive() and time.time() < deadline:
         time.sleep(0.02)
     evs = [m["event"] for m in lines(s) if "event" in m]
     assert evs[-1] == "batch_done"
+    assert {t["video"]: t["status"] for t in s._load_tasks()} == {
+        "/x/a.mp4": "done", "/x/b.mp4": "done"}
+
+
+def test_track_pause_and_delete(tmp_path, monkeypatch):
+    """暂停只改状态，任务保留；删除才移除任务并清除输出目录。"""
+    import chalkpress.ipc as ipc_mod
+    monkeypatch.setattr(ipc_mod, "tasks_path", lambda: tmp_path / "tasks.json")
+    video = tmp_path / "a.mp4"
+    video.write_bytes(b"x")
+    outdir = tmp_path / "a_讲义"
+    outdir.mkdir()
+    s = make_server()
+    s.handle({"id": 1, "method": "tasks.add", "params": {"videos": [str(video)]}})
+    s._track("video_start", {"name": "a.mp4"})
+    s._track("video_paused", {"name": "a.mp4"})
+    assert s._load_tasks()[0]["status"] == "paused"
+    s.handle({"id": 2, "method": "tasks.delete", "params": {"videos": [str(video)]}})
+    assert s._load_tasks() == []
+    assert not outdir.exists()
 
 
 def test_cancel_sets_event():

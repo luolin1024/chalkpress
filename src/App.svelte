@@ -5,7 +5,8 @@
   import { getVersion } from "@tauri-apps/api/app";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { request, startCore, onEvent, onCoreExit } from "./lib/ipc";
-  import { app, resetRun, STAGES, computePct } from "./lib/state.svelte";
+  import { app, resetRun, STAGES, computePct, STATUS_LABEL,
+           type Task, type TaskStatus } from "./lib/state.svelte";
   import { autoUpdate } from "./lib/updater";
   import RunPanel from "./components/RunPanel.svelte";
   import ResultsCard from "./components/ResultsCard.svelte";
@@ -19,37 +20,52 @@
   async function addFiles() {
     const sel = await open({ multiple: true,
       filters: [{ name: "视频", extensions: ["mp4","mov","mkv","webm","avi","m4v","flv","ts"] }] });
-    if (sel) for (const f of [].concat(sel as never)) addVideo(f as string);
+    if (sel) for (const f of [].concat(sel as never)) await addVideo(f as string);
   }
   async function addFolder() {
     const dir = await open({ directory: true });
     if (!dir) return;
     const { videos } = await request<{ videos: string[] }>("fs.list_videos", { dir });
-    for (const v of videos) addVideo(v);
+    for (const v of videos) await addVideo(v);
   }
-  function addVideo(p: string) {
-    if (!app.videos.includes(p)) app.videos.push(p);
+  async function addVideo(p: string) {
+    try {
+      const r = await request<{ tasks: Task[] }>("tasks.add", { videos: [p] });
+      app.tasks = r.tasks;
+    } catch (e: unknown) {
+      app.err = String(e instanceof Error ? e.message : e);
+    }
   }
-  function removeVideo(p: string) {
-    app.videos = app.videos.filter((v) => v !== p);
+  async function removeTask(p: string) {
+    const t = app.tasks.find((x) => x.video === p);
+    if (t && t.status !== "pending" &&
+        !confirm("删除任务将同时清除已生成的讲义文件夹，确定？")) return;
+    try {
+      const r = await request<{ tasks: Task[] }>("tasks.delete", { videos: [p] });
+      app.tasks = r.tasks;
+    } catch (e: unknown) {
+      alert(String(e instanceof Error ? e.message : e));
+    }
   }
 
+  const runnable = (): boolean =>
+    app.tasks.some((t) => ["pending", "paused", "failed"].includes(t.status));
+
   async function start() {
-    if (app.phase === "running" || !app.videos.length) return;
+    if (app.phase === "running" || !runnable()) return;
     resetRun();
     app.phase = "running";
     for (const [k] of STAGES) app.run.stages[k] = "todo";
     page = "home";
     try {
-      // 选项与 keep_log 以当前持久化设置为准
+      // 选项与 keep_log 以当前持久化设置为准；任务队列由 core 持有（含暂停任务）
       const s = await request<{ options: Record<string, unknown>; app: Record<string, unknown> }>("settings.get");
-      await request("convert.start",
-                    { videos: app.videos, options: s.options, app: s.app });
+      await request("convert.start", { options: s.options, app: s.app });
     } catch (e: unknown) {
       app.phase = "error"; app.err = String(e instanceof Error ? e.message : e);
     }
   }
-  async function stop() { await request("convert.cancel"); }
+  async function pause() { await request("convert.pause"); }
 
   onMount(() => {
     let unDrag: (() => void) | null = null;
@@ -57,16 +73,20 @@
     autoUpdate().then((v) => v && alert(`已更新到 v${v}，重启后生效`));
     (async () => {
       try { await startCore(); } catch { coreDown = true; }
+      try {
+        const r = await request<{ tasks: Task[] }>("tasks.list");
+        app.tasks = r.tasks;
+      } catch { /* 任务列表加载失败不阻塞首页 */ }
       const VIDEO_EXTS = /\.(mp4|mov|mkv|webm|avi|m4v|flv|ts)$/i;
       const onDrop = async (paths: string[]) => {
         for (const path of paths) {
           if (VIDEO_EXTS.test(path)) {
-            addVideo(path);
+            await addVideo(path);
           } else if (!/\.[^./\\]+$/.test(path)) {
             // 无扩展名 = 目录：让后端递归展开
             try {
               const { videos } = await request<{ videos: string[] }>("fs.list_videos", { dir: path });
-              for (const v of videos) addVideo(v);
+              for (const v of videos) await addVideo(v);
             } catch { /* 非目录或读取失败，忽略 */ }
           }
         }
@@ -79,6 +99,9 @@
     })();
     onEvent((ev) => {
       switch (ev.event) {
+        case "tasks_changed":
+          if (ev.tasks) app.tasks = ev.tasks;
+          break;
         case "video_start":
           app.run.index = ev.index; app.run.total = ev.total; app.run.name = ev.name;
           for (const [k] of STAGES) app.run.stages[k] = "todo";
@@ -100,6 +123,7 @@
           break;
         case "video_error": app.err = `${ev.name}：${ev.error}`; break;
         case "batch_error": app.phase = "error"; app.err = ev.error; break;
+        case "batch_paused": app.phase = "paused"; break;
         case "batch_done": app.phase = "done"; break;
       }
     });
@@ -109,6 +133,10 @@
     });
     return () => unDrag?.();  // 卸载时解绑拖拽监听
   });
+
+  const statusChip = (st: TaskStatus): string =>
+    ({ pending: "chip", running: "chip run", paused: "chip paused",
+       done: "chip ok", failed: "chip bad" }[st]);
 </script>
 
 <div class="shell">
@@ -145,7 +173,11 @@
     <main class="wrap">
       {#if page === "settings"}
         <SettingsPane />
-      {:else if app.phase === "idle"}
+      {:else if app.phase === "running" || app.phase === "paused"}
+        <RunPanel onPause={pause} onResume={start} paused={app.phase === "paused"} />
+      {:else if app.phase === "done"}
+        <ResultsCard />
+      {:else}
         <section class="hero">
           <div class="drop" role="button" tabindex="0" onclick={addFiles}
                onkeydown={(e) => (e.key === "Enter" || e.key === " ") && addFiles()}>
@@ -155,28 +187,25 @@
           </div>
           <button class="ghost" onclick={addFolder}>添加文件夹</button>
 
-          {#if app.videos.length}
+          {#if app.tasks.length}
             <div class="card">
-              {#each app.videos as v (v)}
+              {#each app.tasks as t (t.video)}
                 <div class="vrow">
-                  <span class="vname">{v.split(/[\\/]/).pop()}</span>
-                  <span class="vsize">{v}</span>
-                  <button class="x" onclick={() => removeVideo(v)}>✕</button>
+                  <span class="vname">{t.video.split(/[\\/]/).pop()}</span>
+                  <span class="vsize">{t.video}</span>
+                  <span class={statusChip(t.status)}>{STATUS_LABEL[t.status]}</span>
+                  <button class="x" title="删除任务" onclick={() => removeTask(t.video)}>✕</button>
                 </div>
               {/each}
-              <div class="vsum">{app.videos.length} 个视频 · 讲义生成在各自视频所在文件夹</div>
+              <div class="vsum">{app.tasks.length} 个任务 · 暂停可断点继续，删除才会真正移除</div>
             </div>
-            <button class="primary" onclick={start}>开始转换</button>
+            {#if runnable()}
+              <button class="primary" onclick={start}>
+                {app.tasks.some((t) => t.status === "paused") ? "继续转换" : "开始转换"}
+              </button>
+            {/if}
           {/if}
-        </section>
-      {:else if app.phase === "running"}
-        <RunPanel {stop} />
-      {:else if app.phase === "done"}
-        <ResultsCard />
-      {:else}
-        <section class="hero">
           {#if app.err}<p class="err">✗ {app.err}</p>{/if}
-          <button class="primary" onclick={() => (app.phase = app.results.length ? "done" : "idle")}>返回</button>
         </section>
       {/if}
     </main>
@@ -219,6 +248,12 @@
   .vname { font-weight: 500; }
   .vsize { color: var(--faint); font-size: 11px; margin-left: auto; overflow: hidden;
            text-overflow: ellipsis; white-space: nowrap; max-width: 40%; }
+  .chip { flex: none; font-size: 11px; color: var(--ink2); border: 1px solid var(--line);
+          border-radius: 99px; padding: 1px 9px; }
+  .chip.run { color: var(--accent-dk); border-color: var(--accent-bg); background: var(--accent-bg); }
+  .chip.paused { color: #8a6d1a; border-color: #efe3bd; background: #fbf4dd; }
+  .chip.ok { color: #2f6d4f; border-color: #cfe5da; background: #ecf6f1; }
+  .chip.bad { color: var(--red); border-color: #f0d3d1; background: #fbeeee; }
   .x { border: 0; background: transparent; color: var(--faint); cursor: pointer; }
   .x:hover { color: var(--red); }
   .vsum { color: var(--ink2); font-size: 12px; padding: 8px 0; }
@@ -227,5 +262,6 @@
   .primary:hover { background: var(--accent-dk); }
   .ghost { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
            padding: 8px 18px; cursor: pointer; }
+  .ghost:hover { border-color: var(--faint); }
   .err { color: var(--red); }
 </style>

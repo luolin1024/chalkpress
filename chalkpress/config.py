@@ -86,6 +86,11 @@ def logs_dir() -> Path:
     return config_dir() / "logs"
 
 
+def tasks_path() -> Path:
+    """任务队列持久化文件（暂停/待处理任务跨重启保留）。"""
+    return config_dir() / "tasks.json"
+
+
 LOG_RETENTION_DAYS = 14
 
 
@@ -175,9 +180,13 @@ def normalize_settings(raw: dict) -> dict:
     o = raw.get("options", {})
     app = raw.get("app", {})
     llm = raw.get("llm", {})
+    layout = o.get("output_layout", "original")
+    speed = o.get("speed", "standard")
     options = {
         "summary_lang": o.get("summary_lang", "zh"),
         "zh_script": o.get("zh_script", "auto"),
+        "speed": speed if speed in ("standard", "fast", "turbo") else "standard",
+        "output_layout": layout if layout in ("original", "grouped") else "original",
         "auto_correct": bool(o.get("auto_correct", True)),
         "term_fix": bool(o.get("term_fix", False)),
     }

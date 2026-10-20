@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import sys
 import threading
 import time
@@ -17,6 +18,7 @@ from .config import (
     normalize_settings,
     prune_logs,
     save_config_file,
+    tasks_path,
 )
 from .pipeline import Options, VIDEO_EXTS, run_batch
 
@@ -87,9 +89,21 @@ class IPCServer:
         if method == "convert.start":
             self._start(params)
             return {}
-        if method == "convert.cancel":
+        if method in ("convert.pause", "convert.cancel"):
             self.cancel.set()
             return {}
+        if method == "tasks.add":
+            return {"tasks": self._add_tasks(params.get("videos") or [])}
+        if method == "tasks.list":
+            return {"tasks": self._load_tasks()}
+        if method == "tasks.delete":
+            return {"tasks": self._delete_tasks(params.get("videos") or [])}
+        if method == "scenes.list":
+            from .scenes import list_scenes
+            return {"scenes": list_scenes()}
+        if method == "scenes.delete":
+            from .scenes import delete_scene
+            return {"deleted": delete_scene(params.get("scene", ""))}
         if method == "logs.prepare":
             d = logs_dir()
             d.mkdir(parents=True, exist_ok=True)
@@ -102,18 +116,28 @@ class IPCServer:
 
     # ---------- 转换 ----------
     def _start(self, params: dict):
+        """开始/继续：跑任务队列里全部 pending/paused/failed 任务；进行中则拒绝。"""
         if self.worker and self.worker.is_alive():
             raise RuntimeError("转换进行中")
         self.cancel.clear()
+        tasks = [t for t in self._load_tasks()
+                 if t.get("status") in ("pending", "paused", "failed")]
+        if not tasks:
+            return
+        for t in tasks:
+            t["status"] = "pending"
+        self._save_tasks(tasks)
         o = params.get("options", {})
         keep_log = bool((params.get("app") or {}).get("keep_log", True))
         opt = Options(
-            video=Path(params["videos"][0]) if params.get("videos") else Path(),
+            video=Path(tasks[0]["video"]),
             scene_threshold=o.get("scene_threshold"),
             min_gap=o.get("min_gap"),
             language=o.get("language"),
             summary_lang=o.get("summary_lang", "zh"),
             zh_script=o.get("zh_script", "auto"),
+            output_layout=o.get("output_layout"),
+            speed=o.get("speed"),
             auto_correct=o.get("auto_correct", True),
             term_fix=o.get("term_fix"),
             asr_backend=o.get("asr_backend"),
@@ -124,11 +148,12 @@ class IPCServer:
             skip_analysis=not load_llm_config(o.get("api_base"), o.get("api_key"),
                                               o.get("llm_model")),
         )
-        videos = [Path(v) for v in params.get("videos", [])]
+        videos = [Path(t["video"]) for t in tasks]
         self._open_logfile(keep_log)
 
         def progress(ev, **kw):
             ev, kw = sanitize_progress(ev, kw)
+            self._track(ev, kw)
             self._emit({"event": ev, **kw})
 
         def work():
@@ -143,6 +168,60 @@ class IPCServer:
 
         self.worker = threading.Thread(target=work, daemon=True)
         self.worker.start()
+
+    # ---------- 任务队列 ----------
+    def _load_tasks(self) -> list:
+        try:
+            data = json.loads(tasks_path().read_text(encoding="utf-8"))
+            return data if isinstance(data, list) else []
+        except (OSError, json.JSONDecodeError):
+            return []
+
+    def _save_tasks(self, tasks: list):
+        p = tasks_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(tasks, ensure_ascii=False, indent=1), encoding="utf-8")
+        self._emit({"event": "tasks_changed", "tasks": tasks})
+
+    def _add_tasks(self, videos: list) -> list:
+        tasks = self._load_tasks()
+        known = {t["video"] for t in tasks}
+        for v in videos:
+            if v not in known:
+                tasks.append({"video": v, "status": "pending"})
+        self._save_tasks(tasks)
+        return tasks
+
+    def _delete_tasks(self, videos: list) -> list:
+        """删除任务并清除其输出目录——删除是唯一真正移除任务的方式。"""
+        if self.worker and self.worker.is_alive():
+            raise RuntimeError("转换进行中，请先暂停再删除任务")
+        tasks = self._load_tasks()
+        keep = []
+        for t in tasks:
+            if t["video"] in videos:
+                v = Path(t["video"])
+                shutil.rmtree(v.with_name(v.stem + "_讲义"), ignore_errors=True)
+            else:
+                keep.append(t)
+        self._save_tasks(keep)
+        return keep
+
+    def _track(self, ev: str, kw: dict):
+        """pipeline 视频级事件 → 任务状态落盘并广播。"""
+        status = {"video_start": "running", "video_done": "done",
+                  "video_paused": "paused", "video_error": "failed"}.get(ev)
+        name = kw.get("name")
+        if not status or not name:
+            return
+        tasks = self._load_tasks()
+        changed = False
+        for t in tasks:
+            if Path(t["video"]).name == name and t.get("status") != status:
+                t["status"] = status
+                changed = True
+        if changed:
+            self._save_tasks(tasks)
 
     def _open_logfile(self, keep_log: bool):
         if not keep_log:

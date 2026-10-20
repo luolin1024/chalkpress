@@ -38,17 +38,29 @@ def align(segments, frame_ts: list[float]) -> list[dict]:
     return out
 
 
-def window_markdown(aligned, frames) -> str:
-    """关键字幕 × 关键帧 对照表（Markdown）。"""
+def window_markdown(aligned, frames, img_rel: str = "keyframes") -> str:
+    """关键字幕 × 关键帧 对照表（Markdown）；img_rel 是 md 文件到关键帧目录的相对路径。"""
     lines = ["## 关键字幕 × 关键帧对照", ""]
     for i, (kf, seg) in enumerate(zip(frames, aligned), 1):
         lines.append(
             f"### [{i:02d}] {_mmss(seg['start'])} – {_mmss(seg['end'])}  `{kf.path.name}`"
         )
+        lines.append("")
+        lines.append(f"![{_mmss(kf.ts)}]({img_rel}/{kf.path.name})")
+        lines.append("")
         if seg["subs"]:
             lines += [f"- [{_mmss(s['start'])}] {s['text']}" for s in seg["subs"]]
         else:
             lines.append("-（此时间窗内无字幕）")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def frames_gallery(frames, img_rel: str = "keyframes") -> str:
+    """关键帧图片廊（Markdown）：附于 AI 总结 md 末尾，让总结文档同样能回看画面。"""
+    lines = ["## 附：关键帧截图", ""]
+    for i, kf in enumerate(frames, 1):
+        lines.append(f"![{i:02d} · {_mmss(kf.ts)}]({img_rel}/{kf.path.name})")
         lines.append("")
     return "\n".join(lines)
 

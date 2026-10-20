@@ -109,13 +109,14 @@ def _initials(s: str) -> tuple:
     return t
 
 
-def _match_span(span: str) -> str | None:
+def _match_in(index: dict, fuzzy: list, span: str) -> str | None:
     """span（纯汉字）→ 应替换为的术语；完全正确或无需替换返回 None。
 
+    index：无声调拼音序列 → 标准写法；fuzzy：参与近音匹配的 ≥4 字术语。
     返回 span 自身表示"整段消费但不替换"（正确的术语，跳过内部重扫）。
     """
     py = _py(span)
-    term = _PINYIN_INDEX.get(py)
+    term = index.get(py)
     if term is not None:
         return None if term == span else term
     if len(span) >= 4:
@@ -123,7 +124,7 @@ def _match_span(span: str) -> str | None:
         # （cun/cheng 这类 en/eng 混淆）。shi/man 声母不同的差异不认可，
         # 否则"是二叉树"会被当成"满二叉树"的近音变体误改。
         hits = set()
-        for t in _FUZZY_TERMS:
+        for t in fuzzy:
             pty = _py(t)
             if len(pty) != len(py):
                 continue
@@ -135,23 +136,22 @@ def _match_span(span: str) -> str | None:
     return None
 
 
-def fix_terms(text: str) -> tuple[str, int]:
-    """确定性术语修正：返回 (修正后文本, 替换处数)。非中文文本原样通过。"""
-    n = 0
-    for wrong, right in DIRECT_FIXES.items():
-        if wrong in text:
-            n += text.count(wrong)
-            text = text.replace(wrong, right)
+def _match_span(span: str) -> str | None:
+    return _match_in(_PINYIN_INDEX, _FUZZY_TERMS, span)
 
+
+def _walk(text: str, match, maxlen: int) -> tuple[str, int]:
+    """按术语最大长度滑窗消费文本，match(span) → 替换术语或 None。"""
+    n = 0
     out: list[str] = []
     i = 0
     while i < len(text):
         done = None
-        for size in range(min(_MAXLEN, len(text) - i), 1, -1):
+        for size in range(min(maxlen, len(text) - i), 1, -1):
             span = text[i:i + size]
             if not _is_hanzi(span):
                 continue
-            term = _match_span(span)
+            term = match(span)
             if term is not None:
                 done = (term, size)
                 break
@@ -164,3 +164,30 @@ def fix_terms(text: str) -> tuple[str, int]:
             i += size
             n += term != text[i - size:i]
     return "".join(out), n
+
+
+def fix_terms(text: str) -> tuple[str, int]:
+    """确定性术语修正：返回 (修正后文本, 替换处数)。非中文文本原样通过。"""
+    n = 0
+    for wrong, right in DIRECT_FIXES.items():
+        if wrong in text:
+            n += text.count(wrong)
+            text = text.replace(wrong, right)
+    text, k = _walk(text, _match_span, _MAXLEN)
+    return text, n + k
+
+
+def fix_custom(text: str, term_list: list[str]) -> tuple[str, int]:
+    """动态术语表修正（场景术语缓存用）：与 fix_terms 相同的滑窗拼音比对。"""
+    index: dict = {}
+    hanzi: list[str] = []
+    for t in term_list:
+        t = t.strip()
+        if len(t) >= 2 and _is_hanzi(t):
+            index.setdefault(_py(t), t)
+            hanzi.append(t)
+    if not index:
+        return text, 0
+    fuzzy = [t for t in hanzi if len(t) >= 4]
+    return _walk(text, lambda span: _match_in(index, fuzzy, span),
+                 max(len(t) for t in index.values()))
