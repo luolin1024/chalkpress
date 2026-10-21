@@ -115,6 +115,10 @@ class IPCServer:
             from .history import clear_history
             clear_history()
             return {}
+        if method == "history.delete":
+            from .history import delete_history
+            delete_history(params.get("video", ""), int(params.get("finished_at") or 0))
+            return {}
         if method == "fs.list_videos":
             d = Path(params["dir"]).expanduser()
             return {"videos": sorted(str(p) for p in d.iterdir()
@@ -224,7 +228,12 @@ class IPCServer:
         tasks = self._load_tasks()
         changed = False
         for t in tasks:
-            if Path(t["video"]).name == name and t.get("status") != status:
+            if Path(t["video"]).name != name:
+                continue
+            if ev == "video_done" and kw.get("outdir") and t.get("outdir") != kw["outdir"]:
+                t["outdir"] = kw["outdir"]
+                changed = True
+            if t.get("status") != status:
                 t["status"] = status
                 changed = True
         if changed:

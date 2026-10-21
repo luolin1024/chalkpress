@@ -105,6 +105,41 @@ def test_video_done_appends_history(tmp_path, monkeypatch):
     s.handle({"id": 5, "method": "history.clear"})
     assert s.handle({"id": 6, "method": "history.list"})["result"]["history"] == []
 
+def test_done_persists_task_outdir(tmp_path, monkeypatch):
+    """video_done 入档时把真实输出目录落到任务上，供前端直接打开。"""
+    import chalkpress.history as history_mod
+    import chalkpress.ipc as ipc_mod
+    monkeypatch.setattr(ipc_mod, "tasks_path", lambda: tmp_path / "tasks.json")
+    monkeypatch.setattr(history_mod, "history_path", lambda: tmp_path / "history.json")
+    s = make_server()
+    s.handle({"id": 1, "method": "tasks.add", "params": {"videos": ["/x/a.mp4"]}})
+    s._track("video_done", {"name": "a.mp4", "outdir": "/x/a_讲义", "pages": 3})
+    t = s._load_tasks()[0]
+    assert t["status"] == "done" and t["outdir"] == "/x/a_讲义"
+    assert s.handle({"id": 2, "method": "tasks.list"})["result"]["tasks"][0]["outdir"] == "/x/a_讲义"
+
+
+def test_history_delete_single_record(tmp_path, monkeypatch):
+    """history.delete 仅删除定位的一条；未命中的定位是 no-op；产物文件不受影响。"""
+    import chalkpress.history as history_mod
+    import chalkpress.ipc as ipc_mod
+    monkeypatch.setattr(ipc_mod, "tasks_path", lambda: tmp_path / "tasks.json")
+    monkeypatch.setattr(history_mod, "history_path", lambda: tmp_path / "history.json")
+    s = make_server()
+    s.handle({"id": 1, "method": "tasks.add",
+              "params": {"videos": ["/x/a.mp4", "/x/b.mp4"]}})
+    s._track("video_done", {"name": "a.mp4", "outdir": "/x/a_讲义", "pages": 3})
+    s._track("video_done", {"name": "b.mp4", "outdir": "/x/b_讲义", "pages": 4})
+    h = s.handle({"id": 2, "method": "history.list"})["result"]["history"]
+    assert len(h) == 2
+    s.handle({"id": 3, "method": "history.delete",
+              "params": {"video": h[0]["video"], "finished_at": h[0]["finished_at"]}})
+    rest = s.handle({"id": 4, "method": "history.list"})["result"]["history"]
+    assert len(rest) == 1 and rest[0]["name"] == "a.mp4"
+    s.handle({"id": 5, "method": "history.delete",
+              "params": {"video": "/x/none.mp4", "finished_at": 0}})
+    assert len(s.handle({"id": 6, "method": "history.list"})["result"]["history"]) == 1
+
 
 
 def test_paused_record_superseded_by_done(tmp_path, monkeypatch):

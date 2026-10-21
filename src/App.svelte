@@ -2,6 +2,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { open } from "@tauri-apps/plugin-dialog";
+  import { openPath } from "@tauri-apps/plugin-opener";
   import { getVersion } from "@tauri-apps/api/app";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { request, startCore, onEvent, onCoreExit } from "./lib/ipc";
@@ -119,7 +120,8 @@
         case "frames": app.run.pages = ev.count; break;
         case "video_done":
           app.results.push({ name: ev.name ?? app.run.name,
-                             pages: ev.pages ?? 0, summary: !!ev.summary });
+                             pages: ev.pages ?? 0, summary: !!ev.summary,
+                             outdir: ev.outdir || undefined });
           if (ev.outdir) app.outdir = ev.outdir;
           break;
         case "video_error": app.err = `${ev.name}：${ev.error}`; break;
@@ -195,6 +197,9 @@
                   <span class="vname">{t.video.split(/[\\/]/).pop()}</span>
                   <span class="vsize">{t.video}</span>
                   <span class={statusChip(t.status)}>{STATUS_LABEL[t.status]}</span>
+                  {#if t.status === "done" && t.outdir}
+                    <button class="open" title="打开讲义文件夹" onclick={() => openPath(t.outdir!)}>打开</button>
+                  {/if}
                   <button class="x" title="删除任务" onclick={() => removeTask(t.video)}>✕</button>
                 </div>
               {/each}
@@ -258,6 +263,10 @@
   .chip.bad { color: var(--red); border-color: #f0d3d1; background: #fbeeee; }
   .x { border: 0; background: transparent; color: var(--faint); cursor: pointer; }
   .x:hover { color: var(--red); }
+  .open { flex: none; height: 26px; padding: 0 12px; border: 1px solid var(--line);
+          border-radius: 7px; background: var(--card); color: var(--ink);
+          font-size: 12px; cursor: pointer; }
+  .open:hover { border-color: var(--faint); }
   .vsum { color: var(--ink2); font-size: 12px; padding: 8px 0; }
   .primary { background: var(--accent); color: #fff; border: 0; border-radius: 10px;
              padding: 11px 28px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; }

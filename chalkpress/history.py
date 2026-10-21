@@ -47,6 +47,20 @@ def list_history() -> list:
         out.append(h)
     return out
 
+def delete_history(video: str, finished_at: int) -> None:
+    """删除单条档案（按 video + finished_at 定位；不删除任何产物文件）。"""
+    kept = [h for h in load_history()
+            if not (h.get("video") == video and int(h.get("finished_at") or 0) == finished_at)]
+    p = history_path()
+    if not kept:
+        try:
+            p.unlink()
+        except FileNotFoundError:
+            pass
+        return
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(kept[:HISTORY_MAX], ensure_ascii=False, indent=1),
+                 encoding="utf-8")
 
 def clear_history() -> None:
     """清空档案（不删除任何产物文件）。"""

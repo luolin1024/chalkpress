@@ -1,7 +1,7 @@
 // src/lib/state.svelte.ts
 export type Phase = "idle" | "running" | "paused" | "done" | "error";
 export type TaskStatus = "pending" | "running" | "paused" | "done" | "failed";
-export type Task = { video: string; status: TaskStatus };
+export type Task = { video: string; status: TaskStatus; outdir?: string };
 
 export const STATUS_LABEL: Record<TaskStatus, string> = {
   pending: "等待中", running: "转换中", paused: "已暂停", done: "已完成", failed: "失败",
@@ -16,7 +16,7 @@ export const app = $state({
     index: 0, total: 0, name: "", pages: 0, pct: 0,
     stages: {} as Record<string, "todo" | "doing" | "done">,
   },
-  results: [] as { name: string; pages: number; summary: boolean }[],
+  results: [] as { name: string; pages: number; summary: boolean; outdir?: string }[],
   outdir: null as string | null,
 });
 

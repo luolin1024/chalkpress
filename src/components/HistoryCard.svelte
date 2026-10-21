@@ -3,7 +3,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { openPath } from "@tauri-apps/plugin-opener";
-  import { request } from "../lib/ipc";
+  import { request, startCore } from "../lib/ipc";
 
   type Item = { video: string; name: string; outdir: string; pages: number;
                 summary: boolean; finished_at: number; exists: boolean; status?: string };
@@ -14,6 +14,8 @@
   let items = $state<Item[] | null>(null);
 
   async function load() {
+    // 子组件先于父 onMount 挂载：core 可能尚未启动，先等就绪再拉取
+    try { await startCore(); } catch { /* 启动失败时下面照常抛错置空 */ }
     try {
       items = (await request<{ history: Item[] }>("history.list")).history;
     } catch {
@@ -26,6 +28,13 @@
       await request("history.clear");
       await load();
     } catch { /* 清理失败不影响展示 */ }
+  }
+  async function del(h: Item) {
+    if (!confirm(`删除「${h.name}」的转换记录？（不会删除已生成的讲义文件）`)) return;
+    try {
+      await request("history.delete", { video: h.video, finished_at: h.finished_at });
+      await load();
+    } catch { /* 删除失败不影响展示 */ }
   }
   onMount(load);
 </script>
@@ -47,9 +56,10 @@
               {#if !h.exists}<span class="gone">· 产物已删除</span>{/if}
             </span>
           </span>
-          {#if h.exists && st(h) === "done"}
+          {#if h.exists}
             <button class="open" title={h.outdir} onclick={() => openPath(h.outdir)}>打开</button>
           {/if}
+          <button class="del" title="删除该条记录" onclick={() => del(h)}>✕</button>
         </div>
       {/each}
     </div>

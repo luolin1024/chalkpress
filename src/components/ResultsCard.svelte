@@ -14,9 +14,15 @@
       <div><b>{app.results.length}</b><span>讲义 PDF</span></div>
       <div><b>{pages}</b><span>讲义页数</span></div>
     </div>
-    {#each app.results as r (r.name)}
-      <div class="row"><span class="pdf">PDF</span> {r.name} <span class="meta">{r.pages} 页 · AI 总结 {r.summary ? "✓" : "—"}</span></div>
-    {/each}
+  {#each app.results as r (r.name)}
+    <div class="row">
+      <span class="pdf">PDF</span> {r.name}
+      <span class="meta">{r.pages} 页 · AI 总结 {r.summary ? "✓" : "—"}</span>
+      {#if r.outdir}
+        <button class="open" title={r.outdir} onclick={() => openPath(r.outdir!)}>打开文件夹</button>
+      {/if}
+    </div>
+  {/each}
     {#if app.outdir}
       <button class="primary" onclick={() => openPath(app.outdir!)}>打开输出文件夹</button>
     {/if}
@@ -36,6 +42,9 @@
   .row { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
   .pdf { color: var(--red); font-size: 11px; border: 1px solid var(--red); border-radius: 4px; padding: 0 4px; }
   .meta { color: var(--ink2); font-size: 12px; float: right; }
+  .open { margin-left: 8px; border: 1px solid var(--line); background: var(--card);
+          border-radius: 6px; padding: 2px 10px; font-size: 12px; cursor: pointer; color: var(--ink); }
+  .open:hover { border-color: var(--faint); }
   .primary { margin-top: 14px; background: var(--accent); color: #fff; border: 0;
              border-radius: 10px; padding: 10px 22px; font-weight: 600; cursor: pointer; }
   .ghost { margin-top: 8px; background: var(--card); color: var(--ink); border: 1px solid var(--line);
