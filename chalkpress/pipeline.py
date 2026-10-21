@@ -91,13 +91,14 @@ def _save_progress(path: Path, data: dict) -> None:
 def _layout_dirs(outdir: Path, layout: str) -> dict[str, Path]:
     """输出布局 → 各类产物目录。
 
-    original：全部平铺在 outdir（关键帧在 outdir/keyframes/，现状结构）；
-    grouped：分类子目录 markdown/ pdf/ attachments/（字幕 srt 仍留在根目录）。
+    original：summary/（AI 总结）与 aligned/（字幕对照 + keyframes/）两目录，pdf/srt 留根；
+    grouped：summary/ aligned/ pdf/ attachments/ 全分类（字幕 srt 仍留在根目录）。
     """
     if layout == "grouped":
-        return {"md": outdir / "markdown", "pdf": outdir / "pdf",
-                "img": outdir / "attachments", "srt": outdir}
-    return {"md": outdir, "pdf": outdir, "img": outdir / "keyframes", "srt": outdir}
+        return {"summary": outdir / "summary", "aligned": outdir / "aligned",
+                "pdf": outdir / "pdf", "img": outdir / "attachments", "srt": outdir}
+    return {"summary": outdir / "summary", "aligned": outdir / "aligned",
+            "pdf": outdir, "img": outdir / "aligned" / "keyframes", "srt": outdir}
 
 
 @dataclass
@@ -134,9 +135,10 @@ def run(opt: Options, log=print, progress=None, cancel_check=None) -> Result:
     outdir = (opt.outdir or video.with_name(video.stem + "_讲义")).expanduser().resolve()
     outdir.mkdir(parents=True, exist_ok=True)
     dirs = _layout_dirs(outdir, opt.output_layout)
-    for d in (dirs["md"], dirs["pdf"], dirs["img"]):
+    for d in (dirs["aligned"], dirs["summary"], dirs["pdf"], dirs["img"]):
         d.mkdir(parents=True, exist_ok=True)
-    img_rel = Path(os.path.relpath(dirs["img"], dirs["md"])).as_posix()
+    img_rel = Path(os.path.relpath(dirs["img"], dirs["aligned"])).as_posix()
+    img_rel_sum = Path(os.path.relpath(dirs["img"], dirs["summary"])).as_posix()
     pack = lang_pack(opt.summary_lang)
     srt_path = dirs["srt"] / f"{video.stem}.srt"
     wav = outdir / "audio.wav"
@@ -233,7 +235,7 @@ def run(opt: Options, log=print, progress=None, cancel_check=None) -> Result:
 
     log("[3/5] 字幕 × 关键帧 对齐 …")
     aligned = align.align(segments, [f.ts for f in frames])
-    aligned_path = dirs["md"] / f"{video.stem}.aligned.md"
+    aligned_path = dirs["aligned"] / f"{video.stem}.aligned.md"
     aligned_path.write_text(align.window_markdown(aligned, frames, img_rel),
                             encoding="utf-8")
     emit("stage_done", key="frames")
@@ -270,8 +272,8 @@ def run(opt: Options, log=print, progress=None, cancel_check=None) -> Result:
     summary_path = None
     if summary_md:
         # 附关键帧图片廊：总结 md 与对照 md 一样内嵌图片，相对链接随布局自适应
-        summary_md = summary_md.rstrip() + "\n\n" + align.frames_gallery(frames, img_rel)
-        summary_path = dirs["md"] / f"{video.stem}.summary.md"
+        summary_md = summary_md.rstrip() + "\n\n" + align.frames_gallery(frames, img_rel_sum)
+        summary_path = dirs["summary"] / f"{video.stem}.summary.md"
         summary_path.write_text(summary_md, encoding="utf-8")
 
     pdf_path = None
@@ -300,7 +302,7 @@ def run(opt: Options, log=print, progress=None, cancel_check=None) -> Result:
 
     dt = time.time() - t0
     log(f"完成：{outdir}（{dt:.1f}s）")
-    emit("video_done", result=Result(
+    emit("video_done", name=video.name, result=Result(
         outdir=outdir, srt=srt_path if srt_path.exists() else None,
         frames=frames, aligned=aligned, summary_md=summary_md,
         summary_path=summary_path, aligned_path=aligned_path,

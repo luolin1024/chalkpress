@@ -58,16 +58,17 @@ chalkpress 视频.mp4 --speed turbo    # 转写并发：standard=4 线程 / fast
 ```
 ├── <名>.pdf            # 首页=AI 总结，后续每页=关键帧+该窗字幕
 ├── <名>.srt            # 全部字幕（可独立使用）
-├── <名>.aligned.md     # 字幕×关键帧对照（内嵌关键帧图片）
-├── <名>.summary.md     # AI 总结（末尾附关键帧图片廊）
-└── keyframes/          # 关键帧图片
+├── summary/            # <名>.summary.md —— AI 总结（末尾附关键帧图片廊）
+└── aligned/            # <名>.aligned.md —— 字幕×关键帧对照
+    └── keyframes/      # 关键帧图片
 ```
 
 `--layout grouped` 按类型分目录存放（md 内的图片相对链接自动适配）：
 
 ```
 ├── <名>.srt
-├── markdown/           # <名>.aligned.md + <名>.summary.md
+├── summary/            # <名>.summary.md
+├── aligned/            # <名>.aligned.md
 ├── pdf/                # <名>.pdf
 └── attachments/        # 关键帧图片
 ```

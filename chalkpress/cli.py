@@ -31,8 +31,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-o", "--outdir", type=Path, default=None,
                    help="输出目录（默认逐视频 <视频名>_讲义/；批量时为 <outdir>/<视频名>/）")
     p.add_argument("--layout", choices=["original", "grouped"], default=None,
-                   help="输出目录结构：original=平铺在 <名>_讲义/（默认）；"
-                        "grouped=分类子目录 markdown/ pdf/ attachments/")
+                   help="输出目录结构：original=summary/ + aligned/（含 keyframes/），pdf/srt 留根（默认）；"
+                        "grouped=summary/ aligned/ pdf/ attachments/ 全分类")
     p.add_argument("--scene-threshold", type=float, default=None,
                    help="场景切换阈值，越小越敏感（默认 0.08）")
     p.add_argument("--min-gap", type=float, default=None, help="关键帧最小间隔秒（默认 2.0）")
