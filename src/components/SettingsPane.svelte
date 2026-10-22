@@ -3,7 +3,7 @@
      视觉：ChatGPT 式设置——节标题 + 圆角卡片，行内"标签+说明在左、控件在右"，细分隔线。 -->
 <script lang="ts">
   import { onMount } from "svelte";
-  import { openPath } from "@tauri-apps/plugin-opener";
+  import { openPath } from "../lib/opener";
   import { getVersion } from "@tauri-apps/api/app";
   import { request } from "../lib/ipc";
   import { checkUpdate } from "../lib/updater";

@@ -1,6 +1,6 @@
 <!-- src/components/ResultsCard.svelte -->
 <script lang="ts">
-  import { openPath } from "@tauri-apps/plugin-opener";
+  import { openPath } from "../lib/opener";
   import { app } from "../lib/state.svelte";
   import HistoryCard from "./HistoryCard.svelte";
 

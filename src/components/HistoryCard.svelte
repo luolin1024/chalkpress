@@ -2,7 +2,7 @@
 <!-- 转换历史档案：跨会话保留"转过什么"（含暂停/失败动态），独立于任务队列（删任务不清历史）。 -->
 <script lang="ts">
   import { onMount } from "svelte";
-  import { openPath } from "@tauri-apps/plugin-opener";
+  import { openPath } from "../lib/opener";
   import { request, startCore } from "../lib/ipc";
 
   type Item = { video: string; name: string; outdir: string; pages: number;
