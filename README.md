@@ -7,6 +7,16 @@
 语音转写 → 字幕校对 → 关键帧对齐 → AI 总结 → 生成 PDF
 </p>
 
+## 界面预览
+
+**首页** —— 拖入视频即可转换，完成后直接打开产物文件夹：
+
+![Chalkpress 首页](docs/superpowers/imgs/image.png)
+
+**任务列表** —— 数据看板（转换量与节省的观看时长）+ 历史记录查看管理：
+
+![Chalkpress 任务列表](docs/superpowers/imgs/image2.png)
+
 ## 为什么是 Chalkpress
 
 看网课时最痛的不是"看"，是"回头找"。视频没法检索、没法打印、拖进度条全靠记忆。Chalkpress 把一场讲座**压缩成一册讲义**：
