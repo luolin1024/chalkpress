@@ -22,11 +22,13 @@
       items = [];
     }
   }
+  let { onChanged }: { onChanged?: () => void } = $props();
   async function clearAll() {
-    if (!confirm("清空转换历史记录？（不会删除已生成的讲义文件）")) return;
+    if (!confirm("清空历史记录？（不会删除已生成的讲义文件）")) return;
     try {
       await request("history.clear");
       await load();
+      onChanged?.();
     } catch { /* 清理失败不影响展示 */ }
   }
   async function del(h: Item) {
@@ -34,6 +36,7 @@
     try {
       await request("history.delete", { video: h.video, finished_at: h.finished_at });
       await load();
+      onChanged?.();
     } catch { /* 删除失败不影响展示 */ }
   }
   onMount(load);
@@ -43,7 +46,7 @@
   <section class="hist">
     <div class="card">
       <div class="head">
-        <h4>转换历史 <span class="count">{items.length}</span></h4>
+        <h4>历史记录 <span class="count">{items.length}</span></h4>
         <button class="del" onclick={clearAll}>清空记录</button>
       </div>
       {#each items as h (h.video + h.finished_at)}

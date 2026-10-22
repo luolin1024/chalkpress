@@ -25,7 +25,7 @@ def test_layout_grouped_splits_all_by_type():
 
 def test_layout_unknown_value_falls_back_original():
     """配置文件手改出未知值时安全回退 original 结构。"""
-    d = _layout_dirs(Path("/out"), "grouped")
+    d = _layout_dirs(Path("/out"), "bogus")
     assert d["img"] == Path("/out/aligned/keyframes")
     assert d["summary"] == Path("/out/summary")
 

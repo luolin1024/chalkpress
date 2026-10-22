@@ -28,13 +28,14 @@ log = logging.getLogger("chalkpress.ipc")
 def sanitize_progress(ev: str, kw: dict) -> tuple[str, dict]:
     """pipeline 的 progress 事件 → 可 JSON 序列化的 IPC 事件。
 
-    video_done 事件携带 Result 数据类（含 Path/列表），展平为 pages/summary/outdir。
+    video_done 事件携带 Result 数据类（含 Path/列表），展平为 pages/summary/outdir/duration。
     """
     if "result" in kw:
         r = kw.pop("result")
         kw["pages"] = len(getattr(r, "frames", None) or [])
         kw["summary"] = bool(getattr(r, "summary_md", None))
         kw["outdir"] = str(getattr(r, "outdir", None) or "")
+        kw["duration"] = float(getattr(r, "duration", None) or 0)
     return ev, kw
 
 
@@ -254,6 +255,7 @@ class IPCServer:
                         "outdir": outdir,
                         "pages": int(kw.get("pages") or 0),
                         "summary": bool(kw.get("summary")),
+                        "duration": int(float(kw.get("duration") or 0)),
                         "finished_at": int(time.time())})
 
     def _open_logfile(self, keep_log: bool):

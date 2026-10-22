@@ -2,7 +2,6 @@
 <script lang="ts">
   import { openPath } from "../lib/opener";
   import { app } from "../lib/state.svelte";
-  import HistoryCard from "./HistoryCard.svelte";
 
   const pages = $derived(app.results.reduce((n, r) => n + r.pages, 0));
 </script>
@@ -30,13 +29,11 @@
       继续转换新的视频
     </button>
   </div>
-  <HistoryCard />
 </section>
 
 <style>
-  .hero { margin-top: 8vh; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
-  .stats { display: flex; gap: 28px; margin: 12px 0; }
+  .hero { margin-top: 18px; }
   .stats b { font-size: 22px; display: block; }
   .stats span { color: var(--ink2); font-size: 12px; }
   .row { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; }

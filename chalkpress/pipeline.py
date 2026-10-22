@@ -112,6 +112,7 @@ class Result:
     aligned_path: Path | None
     pdf_path: Path | None
     seconds: float
+    duration: float = 0.0
 
 
 def _emitter(progress):
@@ -306,11 +307,11 @@ def run(opt: Options, log=print, progress=None, cancel_check=None) -> Result:
         outdir=outdir, srt=srt_path if srt_path.exists() else None,
         frames=frames, aligned=aligned, summary_md=summary_md,
         summary_path=summary_path, aligned_path=aligned_path,
-        pdf_path=pdf_path, seconds=dt))
+        pdf_path=pdf_path, seconds=dt, duration=duration))
     return Result(outdir=outdir, srt=srt_path if srt_path.exists() else None,
                   frames=frames, aligned=aligned, summary_md=summary_md,
                   summary_path=summary_path, aligned_path=aligned_path,
-                  pdf_path=pdf_path, seconds=dt)
+                  pdf_path=pdf_path, seconds=dt, duration=duration)
 
 
 def run_batch(opt: Options, videos: list[Path], log=print, cancel_check=None,

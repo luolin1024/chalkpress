@@ -33,7 +33,7 @@
 </section>
 
 <style>
-  .hero { display: flex; flex-direction: column; gap: 14px; margin-top: 8vh; }
+  .hero { display: flex; flex-direction: column; gap: 14px; margin-top: 18px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
   h3 { margin: 0 0 4px; }
   .now { color: var(--ink2); font-size: 13px; margin: 0 0 12px; }

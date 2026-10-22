@@ -11,10 +11,10 @@
   import { autoUpdate } from "./lib/updater";
   import RunPanel from "./components/RunPanel.svelte";
   import ResultsCard from "./components/ResultsCard.svelte";
-  import HistoryCard from "./components/HistoryCard.svelte";
   import SettingsPane from "./components/SettingsPane.svelte";
+  import TasksPage from "./components/TasksPage.svelte";
 
-  type Page = "home" | "settings";
+  type Page = "home" | "tasks" | "settings";
   let page = $state<Page>("home");
   let coreDown = $state(false);
   let ver = $state("");
@@ -165,6 +165,9 @@
         <button class="nav" class:active={page === "home"} onclick={() => (page = "home")}>
           <span class="ico">▶</span> 首页
         </button>
+        <button class="nav" class:active={page === "tasks"} onclick={() => (page = "tasks")}>
+          <span class="ico">≡</span> 任务列表
+        </button>
         <button class="nav" class:active={page === "settings"} onclick={() => (page = "settings")}>
           <span class="ico">⚙</span> 设置
         </button>
@@ -176,11 +179,10 @@
     <main class="wrap">
       {#if page === "settings"}
         <SettingsPane />
-      {:else if app.phase === "running" || app.phase === "paused"}
-        <RunPanel onPause={pause} onResume={start} paused={app.phase === "paused"} />
-      {:else if app.phase === "done"}
-        <ResultsCard />
+      {:else if page === "tasks"}
+        <TasksPage />
       {:else}
+        <!-- 区域一：添加与转换 -->
         <section class="hero">
           <div class="drop" role="button" tabindex="0" onclick={addFiles}
                onkeydown={(e) => (e.key === "Enter" || e.key === " ") && addFiles()}>
@@ -211,9 +213,14 @@
               </button>
             {/if}
           {/if}
-          <HistoryCard />
           {#if app.err}<p class="err">✗ {app.err}</p>{/if}
         </section>
+        <!-- 区域二：本次转换进度/结果 -->
+        {#if app.phase === "running" || app.phase === "paused"}
+          <RunPanel onPause={pause} onResume={start} paused={app.phase === "paused"} />
+        {:else if app.phase === "done" && app.results.length}
+          <ResultsCard />
+        {/if}
       {/if}
     </main>
   </div>

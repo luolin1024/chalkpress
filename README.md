@@ -89,7 +89,7 @@ export CHALKPRESS_LLM_MODEL="glm-4.6v"                              # 需支持�
 
 ## 桌面应用（Tauri 2）
 
-GUI 为 Tauri 2 桌面应用：**零配置首页**（拖入视频即可转换）+ **设置中心**（每项带一句话解释，改动 400ms 防抖后持久化）+ **应用内自动更新**（从 GitHub Releases 检查并安装新版本）。Python 流水线以 PyInstaller sidecar 形式内嵌，转换逻辑与 CLI 完全同源。
+GUI 为 Tauri 2 桌面应用：**零配置首页**（拖入视频即可转换 + 本次转换结果）+ **任务列表**（数据看板：转换量与节省时长一目了然 + 历史记录查看管理）+ **设置中心**（每项带一句话解释，改动 400ms 防抖后持久化）+ **应用内自动更新**（从 GitHub Releases 检查并安装新版本）。Python 流水线以 PyInstaller sidecar 形式内嵌，转换逻辑与 CLI 完全同源。
 
 ## 从源码运行 / 构建
 

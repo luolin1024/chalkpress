@@ -95,11 +95,11 @@ def test_video_done_appends_history(tmp_path, monkeypatch):
     s.handle({"id": 1, "method": "tasks.add", "params": {"videos": ["/x/a.mp4"]}})
     s._track("video_start", {"name": "a.mp4"})
     s._track("video_done", {"name": "a.mp4", "pages": 12, "summary": True,
-                            "outdir": "/x/a_讲义"})
+                            "outdir": "/x/a_讲义", "duration": 1800})
     h = s.handle({"id": 2, "method": "history.list"})["result"]["history"]
     assert len(h) == 1
-    assert h[0]["name"] == "a.mp4" and h[0]["pages"] == 12
     assert h[0]["summary"] is True and h[0]["exists"] is False  # outdir 不存在
+    assert h[0]["duration"] == 1800
     s.handle({"id": 3, "method": "tasks.delete", "params": {"videos": ["/x/a.mp4"]}})
     assert len(s.handle({"id": 4, "method": "history.list"})["result"]["history"]) == 1
     s.handle({"id": 5, "method": "history.clear"})
@@ -237,8 +237,9 @@ def test_sanitize_progress_result_to_dict():
         frames = [1, 2, 3]
         summary_md = "# t"
         outdir = None
+        duration = 125.0
     ev, kw = sanitize_progress("video_done", {"index": 1, "result": FakeResult()})
     assert ev == "video_done"
     assert "result" not in kw
-    assert kw["pages"] == 3 and kw["summary"] is True
+    assert kw["pages"] == 3 and kw["summary"] is True and kw["duration"] == 125.0
     json.dumps(kw)  # 必须可序列化
