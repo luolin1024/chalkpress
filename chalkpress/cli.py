@@ -52,7 +52,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-correct", dest="auto_correct", action="store_false", default=None,
                    help="关闭 LLM 字幕校对（默认开启，需已配置 LLM）")
     p.add_argument("--term-fix", dest="term_fix", action="store_true", default=None,
-                   help="启用软考术语表修正（拼音比对，无 LLM；默认关闭，可写入配置文件）")
+                   help="启用场景术语修正：AI 识别课程领域（软考/编程/医学…），"
+                        "收集易听错的专业术语并拼音纠错，同场景复用缓存（需已配置 LLM）")
     p.add_argument("--reuse-srt", type=Path, default=None, help="复用已有 SRT，跳过转写")
     p.add_argument("--skip-analysis", action="store_true", help="跳过 LLM 分析")
     p.add_argument("--skip-pdf", action="store_true", help="跳过 PDF 生成")

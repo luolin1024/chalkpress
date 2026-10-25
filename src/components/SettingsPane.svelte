@@ -163,8 +163,8 @@
             </select></span>
         </div>
         <div class="item">
-          <span class="meta"><span class="lab">软考术语修正</span>
-            <span class="tip">拼音比对纠错，无 AI、瞬时；配合下方场景术语库适配更多领域</span></span>
+          <span class="meta"><span class="lab">术语修正</span>
+            <span class="tip">AI 识别课程领域（软考/编程/医学/法律…），收集易听错的专业术语并拼音纠错；同场景复用缓存，需已配置 AI</span></span>
           <input type="checkbox" bind:checked={s.options.term_fix} onchange={touch} />
         </div>
       </div>
@@ -222,7 +222,7 @@
     <section>
       <h3>场景术语库</h3>
       <div class="card">
-        <p class="cardhint">开启术语修正后，转换时自动识别课程场景并收集易听错的专业术语；同一场景复用缓存，不再重复收集。</p>
+        <p class="cardhint">开启「术语修正」后，转换时自动识别课程领域并收集易听错的专业术语；同一场景复用缓存，不再重复收集。内置软考预置包已自动就绪。</p>
         {#each scenes as sc (sc.scene)}
           <div class="scene-row">
             <span class="scene-meta">

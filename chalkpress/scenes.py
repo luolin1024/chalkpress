@@ -16,17 +16,19 @@ from pathlib import Path
 import requests
 
 from .config import LLMConfig, config_dir
-from .terms import fix_custom
+from .terms import _is_hanzi, fix_custom
 
 _PROMPT = """你是课程领域分析助手。下面是一段课程视频的语音识别字幕抽样。请判断内容所属的领域场景，并提取该场景下容易被语音识别听错的高频专业术语。
 
 只输出 JSON，格式：
-{"scene": "简短场景名，如：软考-系统集成项目管理 / Python编程 / 临床医学", "terms": ["术语1", "术语2"]}
+{"scene": "简短场景名，如：软考 / Python编程 / 临床医学", "terms": ["术语1", "术语2"], "confusions": {"误听写法": "标准术语"}}
 
 要求：
 - terms 只收 ≥2 个汉字的中文专业术语或固定名词，10~30 个，按误听概率排序；
+- confusions 只收「实际被听错成的写法 → 标准术语」，两者均为 ≥2 个汉字的纯中文，
+  误听写法与标准写法读音相近但不相同；没有则给空对象；
 - 不收普通词汇、英文、数字；
-- 场景名不超过 20 字。
+- 场景名不超过 20 字，同一领域尽量使用简短统一的名字（如"软考"而非"软考-软件设计师"）。
 
 字幕抽样：
 """
@@ -49,10 +51,12 @@ def load_scene(scene: str) -> dict | None:
         return None
 
 
-def save_scene(scene: str, terms: list[str]) -> None:
+def save_scene(scene: str, terms: list[str], direct: dict[str, str] | None = None) -> None:
     d = scenes_dir()
     d.mkdir(parents=True, exist_ok=True)
     payload = {"scene": scene, "terms": terms, "updated_at": int(time.time())}
+    if direct:
+        payload["direct"] = direct
     _scene_path(scene).write_text(json.dumps(payload, ensure_ascii=False, indent=1),
                                   encoding="utf-8")
 
@@ -85,7 +89,7 @@ def list_scenes() -> list[dict]:
 
 
 def detect_scene(texts: list[str], cfg: LLMConfig, timeout: int = 180) -> dict | None:
-    """字幕抽样 → {"scene", "terms"}；LLM 未按格式回复返回 None（调用方跳过）。"""
+    """字幕抽样 → {"scene", "terms", "confusions"}；LLM 未按格式回复返回 None。"""
     body = "\n".join(t.strip() for t in texts if t.strip())[:6000]
     if not body:
         return None
@@ -112,14 +116,42 @@ def detect_scene(texts: list[str], cfg: LLMConfig, timeout: int = 180) -> dict |
         t = str(t).strip()
         if 2 <= len(t) <= 30 and any("\u4e00" <= c <= "\u9fff" for c in t):
             terms.append(t)
-    return {"scene": scene, "terms": terms[:40]}
+    confusions = {}
+    for wrong, right in (data.get("confusions") or {}).items():
+        wrong, right = str(wrong).strip(), str(right).strip()
+        if (len(wrong) >= 2 and len(right) >= 2 and wrong != right
+                and _is_hanzi(wrong) and _is_hanzi(right)):
+            confusions[wrong] = right
+    return {"scene": scene, "terms": terms[:40], "confusions": confusions}
+
+
+def seed_builtin_scene() -> None:
+    """内置软考预置包幂等落盘：让软考类课程零收集成本直接命中术语表。"""
+    from .terms import BUILTIN_SCENE, builtin_direct, builtin_terms
+    if load_scene(BUILTIN_SCENE) is None:
+        save_scene(BUILTIN_SCENE, builtin_terms(), builtin_direct())
+
+
+def _find_cache(scene: str) -> Path | None:
+    """缓存定位：精确 slug 命中 → 场景名互为前缀的变体命中（LLM 命名漂移容忍）。"""
+    exact = _scene_path(scene)
+    if exact.exists():
+        return exact
+    best: tuple[int, Path] | None = None
+    for f in scenes_dir().glob("*.json"):
+        name = f.stem
+        if scene.startswith(name) or name.startswith(scene):
+            if best is None or len(name) > best[0]:
+                best = (len(name), f)
+    return best[1] if best else None
 
 
 def apply_scene_terms(segments: list[dict], cfg: LLMConfig,
                       sample_n: int = 80) -> tuple[str, int, int]:
     """场景检测 → 缓存合并 → 就地修正 segments。返回 (场景名, 术语数, 修正处数)。
 
-    场景名为空表示检测未成功（调用方跳过日志）；术语缓存命中后不再请求 LLM 提词。
+    场景名为空表示检测未成功（调用方跳过日志）；缓存命中后不再请求 LLM 提词，
+    但场景检测本身仍需一次 LLM 调用来确定当前视频属于哪个领域。
     """
     texts = [s["text"] for s in segments if s.get("text", "").strip()]
     if not texts:
@@ -129,13 +161,18 @@ def apply_scene_terms(segments: list[dict], cfg: LLMConfig,
     if not info:
         return "", 0, 0
     scene = info["scene"]
-    cached = load_scene(scene) or {}
+    cached_path = _find_cache(scene)
+    cached = load_scene(cached_path.stem) if cached_path else {}
     merged = list(dict.fromkeys(cached.get("terms", []) + info["terms"]))
+    direct = dict(cached.get("direct") or {})
+    direct.update(info.get("confusions") or {})
     n = 0
-    if merged:
+    if merged or direct:
+        from .terms import fix_custom
         for s in segments:
-            s["text"], k = fix_custom(s["text"], merged)
+            s["text"], k = fix_custom(s["text"], merged, direct)
             n += k
-    if set(merged) != set(cached.get("terms", [])):
-        save_scene(scene, merged)
+    if set(merged) != set(cached.get("terms", [])) or (
+            direct and direct != cached.get("direct")):
+        save_scene(scene, merged, direct)
     return scene, len(merged), n

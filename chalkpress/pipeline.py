@@ -11,7 +11,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from . import align, analyze, asr, correct, keyframes, pdf, scenes, terms, textproc
+from . import align, analyze, asr, correct, keyframes, pdf, scenes, textproc
 from .config import lang_pack, load_config_file, load_llm_config
 
 # 视频扩展名白名单：CLI 目录展开 / IPC 文件夹枚举共用；TS 侧（对话框过滤器与
@@ -180,14 +180,12 @@ def run(opt: Options, log=print, progress=None, cancel_check=None) -> Result:
     # 指令冲突，触发推理模型长时间空转直至耗尽 max_tokens（正文为空）
     script = textproc.resolve_zh_script(opt.zh_script)
     if opt.term_fix:
-        fix_n = 0
-        for s in segments:
-            s["text"], k = terms.fix_terms(s["text"])
-            fix_n += k
-        if fix_n:
-            log(f"      术语表修正 {fix_n} 处")
-        # 场景术语：LLM 识别领域场景 → 缓存复用 → 动态拼音修正（需已配置 LLM）
-        if cfg is not None and segments:
+        # 场景术语修正（通用）：AI 识别任意领域 → 收集易听错术语 → 拼音修正；
+        # 软考等内置预置包作为场景缓存自动命中，跨视频复用。
+        if cfg is None:
+            log("      未配置 AI，跳过术语修正（需 AI 识别课程领域）")
+        elif segments:
+            scenes.seed_builtin_scene()
             try:
                 scene, terms_n, fixed = scenes.apply_scene_terms(segments, cfg)
                 if scene:

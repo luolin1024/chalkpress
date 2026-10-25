@@ -1,15 +1,17 @@
-"""软考领域术语表 + 拼音比对修正（确定性，零 LLM）。
+"""通用术语修正引擎：滑窗拼音比对 + 误听定点替换（确定性，零 LLM 调用）。
 
 ASR 错误以同音/近音字为主（"生存数"→"生成树"等）。把文本按术语最大长度
-滑窗取纯汉字 span，与术语表的无声调拼音序列比对，命中即替换为标准写法；
-≥4 字 span 额外允许编辑距离 ≤1 的近音命中（eng/en 混淆类）。
+滑窗取纯汉字 span，与给定术语表的无声调拼音序列比对，命中即替换为标准写法；
+≥4 字 span 额外允许编辑距离 ≤1 的近音命中（eng/en 混淆类）；direct 映射
+处理近音非同音的定点替换。
 
 误替换防线：
 - 只收 ≥2 字条目，且无声调拼音不与常用词冲突（单字如"栈"zhan 与站/占/战
   同音，禁止单字条目）；
 - 短 span（<4 字）只做全等拼音匹配，不做模糊匹配。
 
-词条即数据：按章节补充词条即可，不改逻辑。
+词表来源由调用方决定：场景术语缓存（scenes.py，任意领域）或内置软考预置包
+（HANZI_TERMS/DIRECT_FIXES，仅作为「软考」场景的种子数据，不再无条件生效）。
 """
 
 from __future__ import annotations
@@ -79,7 +81,6 @@ DIRECT_FIXES = {
     "升成树": "生成树",
 }
 
-_MAXLEN = max(len(t) for t in HANZI_TERMS)
 _PINYIN_CACHE: dict[str, tuple] = {}
 _INIT_CACHE: dict[str, tuple] = {}
 
@@ -91,11 +92,6 @@ def _py(s: str) -> tuple:
     return t
 
 
-_PINYIN_INDEX: dict[tuple, str] = {}
-for _t in HANZI_TERMS:
-    _PINYIN_INDEX.setdefault(_py(_t), _t)
-
-_FUZZY_TERMS = [t for t in HANZI_TERMS if len(t) >= 4]
 
 
 def _is_hanzi(s: str) -> bool:
@@ -136,9 +132,6 @@ def _match_in(index: dict, fuzzy: list, span: str) -> str | None:
     return None
 
 
-def _match_span(span: str) -> str | None:
-    return _match_in(_PINYIN_INDEX, _FUZZY_TERMS, span)
-
 
 def _walk(text: str, match, maxlen: int) -> tuple[str, int]:
     """按术语最大长度滑窗消费文本，match(span) → 替换术语或 None。"""
@@ -166,19 +159,31 @@ def _walk(text: str, match, maxlen: int) -> tuple[str, int]:
     return "".join(out), n
 
 
-def fix_terms(text: str) -> tuple[str, int]:
-    """确定性术语修正：返回 (修正后文本, 替换处数)。非中文文本原样通过。"""
+BUILTIN_SCENE = "软考"  # 内置软考预置包对应的场景缓存名
+
+
+def builtin_terms() -> list[str]:
+    """软考预置场景包的标准术语表（作为 BUILTIN_SCENE 缓存的种子数据）。"""
+    return list(HANZI_TERMS)
+
+
+def builtin_direct() -> dict[str, str]:
+    """软考预置场景包的误听定点替换（误听写法 → 标准写法）。"""
+    return dict(DIRECT_FIXES)
+
+
+def fix_custom(text: str, term_list: list[str],
+               direct: dict[str, str] | None = None) -> tuple[str, int]:
+    """通用术语表修正：direct 定点替换 + 与软考包相同的滑窗拼音比对。
+
+    返回 (修正后文本, 替换处数)。direct 为 误听写法 → 标准写法 的定点映射
+    （近音非同音，拼音匹配覆盖不到的 case）。
+    """
     n = 0
-    for wrong, right in DIRECT_FIXES.items():
-        if wrong in text:
+    for wrong, right in (direct or {}).items():
+        if wrong and wrong in text:
             n += text.count(wrong)
             text = text.replace(wrong, right)
-    text, k = _walk(text, _match_span, _MAXLEN)
-    return text, n + k
-
-
-def fix_custom(text: str, term_list: list[str]) -> tuple[str, int]:
-    """动态术语表修正（场景术语缓存用）：与 fix_terms 相同的滑窗拼音比对。"""
     index: dict = {}
     hanzi: list[str] = []
     for t in term_list:
@@ -187,7 +192,8 @@ def fix_custom(text: str, term_list: list[str]) -> tuple[str, int]:
             index.setdefault(_py(t), t)
             hanzi.append(t)
     if not index:
-        return text, 0
+        return text, n
     fuzzy = [t for t in hanzi if len(t) >= 4]
-    return _walk(text, lambda span: _match_in(index, fuzzy, span),
-                 max(len(t) for t in index.values()))
+    text, k = _walk(text, lambda span: _match_in(index, fuzzy, span),
+                    max(len(t) for t in index.values()))
+    return text, n + k

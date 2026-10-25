@@ -205,7 +205,6 @@
                   <button class="x" title="删除任务" onclick={() => removeTask(t.video)}>✕</button>
                 </div>
               {/each}
-              <div class="vsum">{app.tasks.length} 个任务 · 暂停可断点继续，删除才会真正移除</div>
             </div>
             {#if runnable()}
               <button class="primary" onclick={start}>
@@ -274,7 +273,6 @@
           border-radius: 7px; background: var(--card); color: var(--ink);
           font-size: 12px; cursor: pointer; }
   .open:hover { border-color: var(--faint); }
-  .vsum { color: var(--ink2); font-size: 12px; padding: 8px 0; }
   .primary { background: var(--accent); color: #fff; border: 0; border-radius: 10px;
              padding: 11px 28px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; }
   .primary:hover { background: var(--accent-dk); }
