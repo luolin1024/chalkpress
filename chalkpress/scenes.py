@@ -132,38 +132,64 @@ PACK_BASES = (
 PACK_FILES = {"软考": "ruankao.json"}  # 预置场景包 → 仓库 scene-packs/ 文件名
 
 
-def download_pack(name: str = "软考", timeout: int = 30) -> dict:
-    """按需下载预置场景包并落盘为场景缓存。返回 {"scene", "terms", "count"}。
+def _fetch_pack_payload(fname: str, timeout: int = 12) -> dict:
+    """拉取并校验预置场景包载荷。多镜像 × (系统代理→直连) 依次尝试，全失败抛最后一次异常。
 
-    多镜像依次尝试（jsDelivr 对国内更稳，raw.githubusercontent 兜底）；
-    全部失败抛出最后一次异常。重复下载 = 覆盖更新。
+    直连兜底：requests 默认走 macOS 系统代理，代理客户端抖动时本地直连
+    jsDelivr 往往仍可达——两种路径各试一次，自动获取才不会间歇性失败。
     """
+    last_exc: Exception | None = None
+    direct_kw = {"http": None, "https": None}  # 显式绕过系统代理
+    for base in PACK_BASES:
+        for proxies in (None, direct_kw):
+            try:
+                kwargs = {"timeout": timeout,
+                          "headers": {"Accept": "application/json"}}
+                if proxies is not None:
+                    kwargs["proxies"] = proxies
+                resp = requests.get(f"{base}/{fname}", **kwargs)
+                resp.raise_for_status()
+                data = resp.json()
+                terms = [str(t).strip() for t in data.get("terms") or []
+                         if len(str(t).strip()) >= 2 and _is_hanzi(str(t).strip())]
+                direct = {}
+                for wrong, right in (data.get("direct") or {}).items():
+                    wrong, right = str(wrong).strip(), str(right).strip()
+                    if (len(wrong) >= 2 and len(right) >= 2 and wrong != right
+                            and _is_hanzi(wrong) and _is_hanzi(right)):
+                        direct[wrong] = right
+                if not terms:
+                    raise ValueError("场景包术语表为空")
+                return {"terms": terms, "direct": direct}
+            except Exception as exc:
+                last_exc = exc
+    raise RuntimeError(f"场景包下载失败（已尝试 {len(PACK_BASES)} 个源 × 代理/直连）：{last_exc}")
+
+
+def download_pack(name: str = "软考", timeout: int = 30) -> dict:
+    """手动拉取预置场景包并落盘（CLI/测试用；GUI 走自动获取，无需用户操作）。"""
     fname = PACK_FILES.get(name)
     if not fname:
         raise KeyError(f"没有名为「{name}」的预置场景包")
-    last_exc: Exception | None = None
-    for base in PACK_BASES:
-        try:
-            resp = requests.get(f"{base}/{fname}", timeout=timeout,
-                                headers={"Accept": "application/json"})
-            resp.raise_for_status()
-            data = resp.json()
-            terms = [str(t).strip() for t in data.get("terms") or []
-                     if len(str(t).strip()) >= 2 and _is_hanzi(str(t).strip())]
-            direct = {}
-            for wrong, right in (data.get("direct") or {}).items():
-                wrong, right = str(wrong).strip(), str(right).strip()
-                if (len(wrong) >= 2 and len(right) >= 2 and wrong != right
-                        and _is_hanzi(wrong) and _is_hanzi(right)):
-                    direct[wrong] = right
-            if not terms:
-                raise ValueError("场景包术语表为空")
-            scene = str(data.get("scene") or "").strip() or name
-            save_scene(scene, terms, direct)
-            return {"scene": scene, "terms": terms, "count": len(terms)}
-        except Exception as exc:
-            last_exc = exc
-    raise RuntimeError(f"场景包下载失败（已尝试 {len(PACK_BASES)} 个源）：{last_exc}")
+    payload = _fetch_pack_payload(fname, timeout)
+    save_scene(name, payload["terms"], payload["direct"])
+    return {"scene": name, "terms": payload["terms"], "count": len(payload["terms"])}
+
+
+def _auto_fetch_pack(scene: str) -> dict | None:
+    """检测场景命中预置包注册表时自动拉取并按规范名落盘（下次直接命中缓存）；
+    任何失败静默返回 None（不阻塞转换，仅用 LLM 现场收集）。"""
+    fname = next((f for pack, f in PACK_FILES.items()
+                  if scene.startswith(pack) or pack.startswith(scene)), None)
+    if not fname:
+        return None
+    pack_name = next(pack for pack, f in PACK_FILES.items() if f == fname)
+    try:
+        payload = _fetch_pack_payload(fname)
+    except Exception:
+        return None
+    save_scene(pack_name, payload["terms"], payload["direct"])
+    return payload
 
 def _find_cache(scene: str) -> Path | None:
     """缓存定位：精确 slug 命中 → 场景名互为前缀的变体命中（LLM 命名漂移容忍）。"""
@@ -196,6 +222,12 @@ def apply_scene_terms(segments: list[dict], cfg: LLMConfig,
     scene = info["scene"]
     cached_path = _find_cache(scene)
     cached = load_scene(cached_path.stem) if cached_path else {}
+    if not cached.get("terms"):
+        # 首次遇到该领域：命中预置包注册表则自动拉取一次，全程无需用户操作；
+        # 拉取失败静默降级为仅 LLM 现场收集，不阻塞转换
+        auto = _auto_fetch_pack(scene)
+        if auto:
+            cached = {"terms": auto["terms"], "direct": auto.get("direct") or {}}
     merged = list(dict.fromkeys(cached.get("terms", []) + info["terms"]))
     direct = dict(cached.get("direct") or {})
     direct.update(info.get("confusions") or {})
