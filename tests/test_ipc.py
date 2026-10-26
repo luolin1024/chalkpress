@@ -176,6 +176,57 @@ def test_history_clear_missing_file_is_noop(tmp_path, monkeypatch):
     monkeypatch.setattr(history_mod, "history_path", lambda: tmp_path / "none.json")
     history_mod.clear_history()  # 不抛异常
 
+
+def test_scenes_download_pack(tmp_path, monkeypatch):
+    """下载预置场景包：落盘缓存、校验载荷；主源失败自动切镜像；坏载荷拒绝。"""
+    import chalkpress.scenes as scenes
+    monkeypatch.setattr(scenes, "config_dir", lambda: tmp_path)
+    payload = {"scene": "软考", "terms": ["二叉树", "哈夫曼树"],
+               "direct": {"生存数": "生成树"}}
+    urls = []
+
+    def fake_get(url, timeout=None, headers=None):
+        urls.append(url)
+        if len(urls) == 1:  # 主源失败 → 切镜像
+            raise OSError("connection reset")
+
+        class R:
+            def raise_for_status(self): pass
+            def json(self): return payload
+        return R()
+
+    monkeypatch.setattr(scenes.requests, "get", fake_get)
+    r = scenes.download_pack("软考")
+    assert r["scene"] == "软考" and r["count"] == 2
+    assert len(urls) == 2 and "jsdelivr" in urls[0] and "raw.githubusercontent" in urls[1]
+    cached = scenes.load_scene("软考")
+    assert cached["terms"] == ["二叉树", "哈夫曼树"] and cached["direct"] == {"生存数": "生成树"}
+
+    # 已缓存后重复下载 = 覆盖更新，不报错
+    monkeypatch.setattr(scenes.requests, "get", fake_get)
+    scenes.download_pack("软考")
+    assert scenes.load_scene("软考")["terms"] == ["二叉树", "哈夫曼树"]
+
+
+def test_scenes_download_pack_rejects_bad_payload(tmp_path, monkeypatch):
+    import chalkpress.scenes as scenes
+    monkeypatch.setattr(scenes, "config_dir", lambda: tmp_path)
+
+    def fake_get(url, timeout=None, headers=None):
+        class R:
+            def raise_for_status(self): pass
+            def json(self): return {"scene": "软考", "terms": ["x", 3, "ok词"]}  # 全被过滤
+        return R()
+
+    monkeypatch.setattr(scenes.requests, "get", fake_get)
+    try:
+        scenes.download_pack("软考")
+        raise AssertionError("应当抛错")
+    except RuntimeError as exc:
+        assert "场景包下载失败" in str(exc)
+    assert not (tmp_path / "term_scenes").exists() or not scenes.load_scene("软考")
+
+
 def test_serve_skips_non_json_lines():
     from chalkpress.ipc import IPCServer
     stdin = io.StringIO('not json\n{"id":1,"method":"nope"}\n\n')

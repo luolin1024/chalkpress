@@ -125,12 +125,45 @@ def detect_scene(texts: list[str], cfg: LLMConfig, timeout: int = 180) -> dict |
     return {"scene": scene, "terms": terms[:40], "confusions": confusions}
 
 
-def seed_builtin_scene() -> None:
-    """内置软考预置包幂等落盘：让软考类课程零收集成本直接命中术语表。"""
-    from .terms import BUILTIN_SCENE, builtin_direct, builtin_terms
-    if load_scene(BUILTIN_SCENE) is None:
-        save_scene(BUILTIN_SCENE, builtin_terms(), builtin_direct())
+PACK_BASES = (
+    "https://cdn.jsdelivr.net/gh/luolin1024/chalkpress@main/scene-packs",
+    "https://raw.githubusercontent.com/luolin1024/chalkpress/main/scene-packs",
+)
+PACK_FILES = {"软考": "ruankao.json"}  # 预置场景包 → 仓库 scene-packs/ 文件名
 
+
+def download_pack(name: str = "软考", timeout: int = 30) -> dict:
+    """按需下载预置场景包并落盘为场景缓存。返回 {"scene", "terms", "count"}。
+
+    多镜像依次尝试（jsDelivr 对国内更稳，raw.githubusercontent 兜底）；
+    全部失败抛出最后一次异常。重复下载 = 覆盖更新。
+    """
+    fname = PACK_FILES.get(name)
+    if not fname:
+        raise KeyError(f"没有名为「{name}」的预置场景包")
+    last_exc: Exception | None = None
+    for base in PACK_BASES:
+        try:
+            resp = requests.get(f"{base}/{fname}", timeout=timeout,
+                                headers={"Accept": "application/json"})
+            resp.raise_for_status()
+            data = resp.json()
+            terms = [str(t).strip() for t in data.get("terms") or []
+                     if len(str(t).strip()) >= 2 and _is_hanzi(str(t).strip())]
+            direct = {}
+            for wrong, right in (data.get("direct") or {}).items():
+                wrong, right = str(wrong).strip(), str(right).strip()
+                if (len(wrong) >= 2 and len(right) >= 2 and wrong != right
+                        and _is_hanzi(wrong) and _is_hanzi(right)):
+                    direct[wrong] = right
+            if not terms:
+                raise ValueError("场景包术语表为空")
+            scene = str(data.get("scene") or "").strip() or name
+            save_scene(scene, terms, direct)
+            return {"scene": scene, "terms": terms, "count": len(terms)}
+        except Exception as exc:
+            last_exc = exc
+    raise RuntimeError(f"场景包下载失败（已尝试 {len(PACK_BASES)} 个源）：{last_exc}")
 
 def _find_cache(scene: str) -> Path | None:
     """缓存定位：精确 slug 命中 → 场景名互为前缀的变体命中（LLM 命名漂移容忍）。"""

@@ -1,9 +1,10 @@
 # tests/test_terms.py
 """术语修正引擎的行为契约：纠错有效、防御性不误伤、direct 定点替换。"""
-from chalkpress.terms import BUILTIN_SCENE, builtin_direct, builtin_terms, fix_custom
+from chalkpress.terms import fix_custom
 
-# 软考预置包全量（行为契约针对真实数据）
-SOFT = builtin_terms()
+# 软考术语切片（与 scene-packs/ruankao.json 同源的真实数据）
+SOFT = ["生成树", "最小生成树", "二叉树", "满二叉树", "完全二叉树", "哈夫曼树",
+        "哈夫曼编码", "顺序表", "单链表", "循环队列", "进程", "线程", "死锁"]
 
 
 def test_exact_pinyin_homophone_replaced():
@@ -38,12 +39,11 @@ def test_non_cjk_passthrough():
 
 def test_direct_confusion_fixed():
     """direct 定点替换：近音非同音（拼音匹配覆盖不到）的误听。"""
-    got, n = fix_custom("这就是最小生存数问题", SOFT, builtin_direct())
+    got, n = fix_custom("这就是最小生存数问题", SOFT, {"生存数": "生成树"})
     assert got == "这就是最小生成树问题" and n == 1
 
 
-def test_builtin_scene_package_consistent():
-    """预置包自洽：场景名非空、术语纯汉字≥2字、direct 值都在术语表或可独立成词。"""
-    assert BUILTIN_SCENE == "软考"
-    assert all(len(t) >= 2 for t in builtin_terms())
-    assert all(w != r and r for w, r in builtin_direct().items())
+def test_terms_filtered_by_engine():
+    """引擎只收纯汉字 ≥2 字词条；ASCII/单字条目不参与匹配。"""
+    got, n = fix_custom("TCP与栈", ["TCP/IP", "栈", "堆排序"])
+    assert got == "TCP与栈" and n == 0

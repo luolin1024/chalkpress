@@ -38,6 +38,8 @@
   let ver = $state("");
   let updStatus = $state("");
   let checking = $state(false);
+  let packBusy = $state(false);
+  let packStatus = $state("");
 
   const DEFAULT_OPTIONS: Settings["options"] = {
     summary_lang: "zh",
@@ -92,6 +94,20 @@
       await loadScenes();
     } catch (e: unknown) {
       saveErr = String(e instanceof Error ? e.message : e);
+    }
+  }
+  async function downloadPack() {
+    packBusy = true;
+    packStatus = "";
+    try {
+      const r = await request<{ scene: string; count: number }>(
+        "scenes.download_pack", { name: "软考" });
+      packStatus = `已就绪：${r.count} 条术语`;
+      await loadScenes();
+    } catch (e: unknown) {
+      packStatus = `下载失败：${String(e instanceof Error ? e.message : e)}`;
+    } finally {
+      packBusy = false;
     }
   }
 
@@ -222,7 +238,21 @@
     <section>
       <h3>场景术语库</h3>
       <div class="card">
-        <p class="cardhint">开启「术语修正」后，转换时自动识别课程领域并收集易听错的专业术语；同一场景复用缓存，不再重复收集。内置软考预置包已自动就绪。</p>
+        <p class="cardhint">开启「术语修正」后，转换时自动识别课程领域并收集易听错的专业术语；同一场景复用缓存，不再重复收集。</p>
+        <div class="scene-row">
+          <span class="scene-meta">
+            <span class="scene-name">软考术语包</span>
+            <span class="scene-info">软考/计算机课程预置术语（241 条）+ 常见误听修正，按需下载</span>
+            {#if packStatus}<span class="scene-info">{packStatus}</span>{/if}
+          </span>
+          {#if scenes.some((sc) => sc.scene === "软考")}
+            <span class="cardhint">已就绪</span>
+          {:else}
+            <button class="ghost" disabled={packBusy} onclick={downloadPack}>
+              {packBusy ? "下载中…" : "下载"}
+            </button>
+          {/if}
+        </div>
         {#each scenes as sc (sc.scene)}
           <div class="scene-row">
             <span class="scene-meta">

@@ -105,6 +105,10 @@ class IPCServer:
         if method == "scenes.delete":
             from .scenes import delete_scene
             return {"deleted": delete_scene(params.get("scene", ""))}
+        if method == "scenes.download_pack":
+            from .scenes import download_pack
+            r = download_pack(params.get("name") or "软考")
+            return {"scene": r["scene"], "count": r["count"]}
         if method == "logs.prepare":
             d = logs_dir()
             d.mkdir(parents=True, exist_ok=True)

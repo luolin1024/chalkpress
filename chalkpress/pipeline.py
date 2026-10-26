@@ -181,11 +181,10 @@ def run(opt: Options, log=print, progress=None, cancel_check=None) -> Result:
     script = textproc.resolve_zh_script(opt.zh_script)
     if opt.term_fix:
         # 场景术语修正（通用）：AI 识别任意领域 → 收集易听错术语 → 拼音修正；
-        # 软考等内置预置包作为场景缓存自动命中，跨视频复用。
+        # 预置场景包（如软考）在设置里按需下载后自动参与命中。
         if cfg is None:
             log("      未配置 AI，跳过术语修正（需 AI 识别课程领域）")
         elif segments:
-            scenes.seed_builtin_scene()
             try:
                 scene, terms_n, fixed = scenes.apply_scene_terms(segments, cfg)
                 if scene:
