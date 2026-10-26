@@ -178,6 +178,6 @@ corepack pnpm tauri build   # 打包
 
 **觉得有用？给个 ⭐ 让更多人看到**
 
-[下载](https://github.com/luolin1024/chalkpress/releases) · [问题反馈](https://github.com/luolin1024/chalkpress/issues) · [商业授权洽谈](mailto:contact@ai2070.cn)
+[下载](https://github.com/luolin1024/chalkpress/releases) · [问题反馈](https://github.com/luolin1024/chalkpress/issues) · [商业授权洽谈](mailto:2493468168@qq.com)
 
 </div>

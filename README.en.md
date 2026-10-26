@@ -80,7 +80,7 @@ Videos never leave your machine. Only if you configure an LLM will subtitle text
 ## License
 
 Free for personal / educational / non-commercial use ([PolyForm Noncommercial 1.0.0](./LICENSE)).
-Commercial licensing (training orgs, enterprise) available on request.
+Commercial licensing (training orgs, enterprise): 2493468168@qq.com
 
 ---
 
