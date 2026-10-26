@@ -30,6 +30,16 @@ Chalkpress compresses a lecture into a **handout booklet**:
 
 **Output per video**: `handout.pdf` (searchable text layer) · `subtitles.srt` · `aligned.md` · `summary.md`
 
+## ✨ Output preview
+
+**AI study notes (page 1)** — auto-extracted exam-point structure with star weights from a real lecture:
+
+![AI study notes](docs/superpowers/imgs/PixPin_2026-10-26_21-50-08.png)
+
+**Output folder** — one conversion, a complete handout kit:
+
+![Output structure](docs/superpowers/imgs/PixPin_2026-10-26_21-51-56.png)
+
 ## Install
 
 Grab a build from [GitHub Releases](https://github.com/luolin1024/chalkpress/releases):

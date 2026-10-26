@@ -36,15 +36,26 @@ Chalkpress 把一场讲座**压缩成一册讲义**：
 | `aligned.md` | 字幕×关键帧对照表（Markdown） |
 | `summary.md` | AI 结构化学习笔记（配置 LLM 后） |
 
-## 界面预览
+## ✨ 效果预览
 
-**首页** —— 拖入视频即可转换，完成后直接打开产物文件夹：
+**AI 学习笔记首页** —— 软考软设课程「考情分析」一节，自动提炼出带星级权重的考点结构：
+
+![AI 学习笔记：考情分析](docs/superpowers/imgs/PixPin_2026-10-26_21-50-08.png)
+
+**输出目录** —— 一次转换，交付完整讲义工程（字幕 / 对齐文档 / 关键帧 / PDF / AI 总结）：
+
+![输出目录结构](docs/superpowers/imgs/PixPin_2026-10-26_21-51-56.png)
+
+**应用界面** —— 拖入视频即可转换 + 任务看板：
+
+<details>
+<summary>展开查看应用截图</summary>
 
 ![Chalkpress 首页](docs/superpowers/imgs/image.png)
 
-**任务列表** —— 数据看板（转换量与节省的观看时长）+ 历史记录查看管理：
-
 ![Chalkpress 任务列表](docs/superpowers/imgs/image2.png)
+
+</details>
 
 ## 为什么是 Chalkpress
 
