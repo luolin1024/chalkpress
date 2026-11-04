@@ -109,6 +109,18 @@ class IPCServer:
             d = logs_dir()
             d.mkdir(parents=True, exist_ok=True)
             return {"dir": str(d), "pruned": prune_logs()}
+        if method == "feedback.status":
+            from .feedback import load_credentials
+            return {"enabled": load_credentials(log=log.info) is not None}
+        if method == "feedback.submit":
+            from .feedback import build_payload, submit_feedback
+            content = str(params.get("content") or "").strip()
+            if not 10 <= len(content) <= 500:
+                raise ValueError("反馈内容需 10-500 字")
+            p = build_payload(str(params.get("type") or "other"), content,
+                              str(params.get("contact") or ""),
+                              bool(params.get("attach_log")))
+            return {"ok": submit_feedback(p, log=log.info)}
         if method == "history.list":
             from .history import list_history
             return {"history": list_history()}

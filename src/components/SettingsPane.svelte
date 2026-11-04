@@ -7,6 +7,7 @@
   import { getVersion } from "@tauri-apps/api/app";
   import { request } from "../lib/ipc";
   import { checkUpdate } from "../lib/updater";
+  import FeedbackDialog from "./FeedbackDialog.svelte";
 
   type Settings = {
     options: {
@@ -38,6 +39,8 @@
   let ver = $state("");
   let updStatus = $state("");
   let checking = $state(false);
+  let fbEnabled = $state(false);
+  let fbOpen = $state(false);
 
   const DEFAULT_OPTIONS: Settings["options"] = {
     summary_lang: "zh",
@@ -116,6 +119,10 @@
       loadErr = String(e instanceof Error ? e.message : e);
     }
     loadScenes();
+    // 反馈入口仅在凭据可用（core 侧 env 文件/环境变量链）时可见；失败不影响设置页
+    request<{ enabled: boolean }>("feedback.status")
+      .then((r) => (fbEnabled = r.enabled))
+      .catch(() => (fbEnabled = false));
     try {
       ver = `v${await getVersion()}`;
     } catch {
@@ -305,8 +312,25 @@
         </div>
       </div>
     </section>
+
+    {#if fbEnabled}
+      <section>
+        <h3>反馈</h3>
+        <div class="card">
+          <div class="item">
+            <span class="meta"><span class="lab">问题反馈</span>
+              <span class="tip">遇到 bug、有功能建议？直达开发者</span></span>
+            <button class="ghost" onclick={() => (fbOpen = true)}>反馈</button>
+          </div>
+        </div>
+      </section>
+    {/if}
   {/if}
 </div>
+
+{#if fbOpen}
+  <FeedbackDialog onClose={() => (fbOpen = false)} />
+{/if}
 
 <style>
   .pane { max-width: 620px; }
