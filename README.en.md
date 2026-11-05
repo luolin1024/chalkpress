@@ -67,6 +67,12 @@ chalkpress lecture.mp4 --reuse-srt sub.srt   # skip transcription
 chalkpress lecture.mp4 --speed turbo         # max transcription parallelism
 ```
 
+## Privacy
+
+- Videos and transcripts are processed **100% locally, never uploaded**
+- The app collects anonymous usage statistics (conversion counts, feature usage, crash reports) to improve the product — **consent is asked on first launch, can be declined, and declining affects nothing**
+- Your video content, transcript text, or personal information is never collected
+
 ## FAQ
 
 <details>

@@ -6,9 +6,9 @@
 
 🎬 视频 ──→ 📄 讲义 · 关键帧成页 · 字幕随页 · AI 总结开篇 · 全程本地
 
-[![Release](https://img.shields.io/github/v/release/luolin1024/chalkpress?include_prereleases&label=下载)](https://github.com/luolin1024/chalkpress/releases)
-[![Platform](https://img.shields.io/badge/平台-Windows%20%7C%20macOS%20%7C%20Linux-blue)](#下载安装)
-[![License](https://img.shields.io/badge/许可-PolyForm%20NC%201.0-orange)](#许可与商业授权)
+[![Release](https://img.shields.io/github/v/release/luolin1024/chalkpress?include_prereleases&label=%E4%B8%8B%E8%BD%BD)](https://github.com/luolin1024/chalkpress/releases)
+[![Platform](https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-Windows%20%7C%20macOS%20%7C%20Linux-blue)](#下载安装)
+[![License](https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF-PolyForm%20NC%201.0-orange)](#许可与商业授权)
 [![Stars](https://img.shields.io/github/stars/luolin1024/chalkpress?style=social)](https://github.com/luolin1024/chalkpress/stargazers)
 
 **[下载最新版](https://github.com/luolin1024/chalkpress/releases)** · [快速上手](#快速上手) · [CLI 用法](#cli) · [常见问题](#常见问题) · [English](./README.en.md)
@@ -36,7 +36,7 @@ Chalkpress 把一场讲座**压缩成一册讲义**：
 | `aligned.md` | 字幕×关键帧对照表（Markdown） |
 | `summary.md` | AI 结构化学习笔记（配置 LLM 后） |
 
-## ✨ 效果预览
+## 效果
 
 **AI 学习笔记首页** —— 软考软设课程「考情分析」一节，自动提炼出带星级权重的考点结构：
 
@@ -46,10 +46,8 @@ Chalkpress 把一场讲座**压缩成一册讲义**：
 
 ![输出目录结构](docs/superpowers/imgs/PixPin_2026-10-26_21-51-56.png)
 
-**应用界面** —— 拖入视频即可转换 + 任务看板：
-
 <details>
-<summary>展开查看应用截图</summary>
+<summary>应用截图</summary>
 
 ![Chalkpress 首页](docs/superpowers/imgs/image.png)
 
@@ -57,17 +55,41 @@ Chalkpress 把一场讲座**压缩成一册讲义**：
 
 </details>
 
-## 为什么是 Chalkpress
+## 30 秒上手
 
-- **关键帧成页** —— 场景检测驱动抽帧：内容变化才截，不是机械等间隔
-- **字幕随页** —— Whisper 本地转写，字幕对齐到所在画面的时间窗，页面即上下文
-- **AI 总结开篇** —— 接任意 OpenAI 兼容视觉模型，生成结构化学习笔记作为 PDF 首页
-- **全程本地** —— 转写、抽帧在你电脑上完成，视频不上传；LLM 是唯一可选的外呼
-- **场景术语自适应** —— 识别课程领域，把易听错的专业术语按领域分类缓存到本地，下次转换直接复用（软考证被听成软靠正？修掉）；软考等预置术语包在转换时自动获取，无需手动下载
-- **暂停与断点续跑** —— 阶段边界可暂停，已完成部分自动保存
-- **零配置上手** —— 拖入视频、点开始，其余全部自动
+1. [下载安装包](https://github.com/luolin1024/chalkpress/releases)（Windows / macOS / Linux）
+2. 把视频拖进窗口，点 **开始转换**
+3. 完成后点 **打开输出文件夹** —— 讲义 PDF 就在视频旁边
 
-**适合谁**：网课学生 · 做课程笔记的人 · 讲师/培训机构（课后讲义交付）· 内容创作者（视频文字化）
+零配置：语音语言自动识别、字幕模型自动选择、输出语言默认简体中文。AI 总结是可选项，不配置也能用（关键帧 PDF + 字幕照常生成）；想开就在设置页填三行（接口地址 / Key / 模型名），任意 OpenAI 兼容端点均可。
+
+## 特性
+
+| | 特性 | 说明 |
+|---|------|------|
+| 🎯 | **关键帧成页** | 场景检测驱动抽帧：内容变化才截，不是机械等间隔 |
+| 📝 | **字幕随页** | Whisper 本地转写，字幕对齐到所在画面的时间窗，页面即上下文 |
+| 🤖 | **AI 总结开篇** | 接任意 OpenAI 兼容视觉模型，生成结构化学习笔记作为 PDF 首页 |
+| 🔒 | **全程本地** | 转写、抽帧在你电脑上完成，视频不上传；LLM 是唯一可选的外呼 |
+| 📚 | **场景术语自适应** | 识别课程领域，易听错的专业术语按领域缓存复用（软考证被听成软靠正？修掉） |
+| ⏸️ | **暂停与断点续跑** | 阶段边界可暂停，已完成部分自动保存 |
+| 🖥️ | **双形态** | 桌面 GUI（拖入即转）+ CLI（脚本/批量/管道） |
+
+## 与常见工具的区别
+
+| | Chalkpress | 剪映 / 飞书妙记 | 通用转写工具 |
+|---|-----------|---------------|-------------|
+| 产出形态 | **讲义 PDF**（画面+字幕同页） | 转文字稿 | 纯文字 |
+| 可打印可检索 | ✅ 文字层 PDF | ❌ | ❌ |
+| AI 结构化总结 | ✅ | ❌ | ❌ |
+| 视频上传 | **永不上传** | 需上传云端 | 视本地实现 |
+| 批量整目录 | ✅ | ❌ | 视工具 |
+
+## 隐私承诺
+
+- 视频与转写内容**全程本地处理，永不上传**
+- 应用收集匿名的使用统计（转换次数、功能使用、崩溃报告）以改进产品——**首次启动时征得同意，可拒绝，拒绝不影响任何功能**
+- 不会收集你的视频内容、文字内容或个人信息
 
 ## 下载安装
 
@@ -81,15 +103,6 @@ Chalkpress 把一场讲座**压缩成一册讲义**：
 
 应用内置**自动更新**（应用内静默更新）。
 
-## 快速上手
-
-1. 打开 Chalkpress，把视频（或整个课程文件夹）拖入窗口
-2. 点 **开始转换**
-3. 完成后点 **打开输出文件夹** —— 讲义 PDF 就在视频旁边（`<视频名>_讲义/`）
-
-零配置：语音语言自动识别、字幕模型自动选择、输出语言默认简体中文。
-想调整？侧栏 → **设置**：输出语言、简繁、字幕模型、场景灵敏度……每项都有一句话解释。
-
 ## CLI
 
 ```bash
@@ -101,20 +114,6 @@ chalkpress 视频.mp4 --speed turbo         # 转写并发：standard/fast/turbo
 chalkpress 视频.mp4 --layout grouped      # 分类输出：markdown/ pdf/ attachments/
 chalkpress 视频.mp4 --zh-script traditional  # 繁体输出
 ```
-
-## AI 分析（可选）
-
-不配置也能用（关键帧 PDF + 字幕）；配置后额外获得字幕校对与结构化总结。
-
-任意 OpenAI 兼容 `/chat/completions` 端点均可（GLM / DeepSeek / SiliconFlow / OpenAI / 本地网关），需支持图片输入：
-
-```bash
-export CHALKPRESS_API_BASE="https://open.bigmodel.cn/api/paas/v4"
-export CHALKPRESS_API_KEY="sk-..."
-export CHALKPRESS_LLM_MODEL="glm-4.6v"
-```
-
-也可在 GUI 设置页填写（改动即存，持久生效）。
 
 ## 常见问题
 
@@ -139,7 +138,7 @@ CPU int8 下约实时速度的 2-4 倍（视视频时长与语速）；macOS App
 <details>
 <summary><b>我的视频可以上传吗/隐私？</b></summary>
 
-视频**始终不上传**——转写和抽帧全程本地。只有你主动配置 LLM 时，字幕文本与关键帧会发送给你自己配置的模型端点。应用会收集匿名的软件使用统计（转换次数等功能数据，首次启动征得同意、可拒绝且不影响功能），绝不含视频内容/文字/个人信息。
+视频**始终不上传**——转写和抽帧全程本地。只有你主动配置 LLM 时，字幕文本与关键帧会发送给你自己配置的模型端点。匿名使用统计在首次启动时单独征求同意，可拒绝。
 </details>
 
 <details>
@@ -175,15 +174,17 @@ corepack pnpm tauri build   # 打包
 - [x] 批量/课程目录递归处理
 - [x] 三平台安装包 + 应用内自动更新
 - [x] 场景术语自适应缓存
+- [x] 应用内反馈通道
 - [ ] 多语种界面语言包
 - [ ] 云端批量 API（机构版）
 
 ## 许可与商业授权
 
-- **个人与教育用途永久免费**（含全部功能，无功能限制）
-- **我们收集匿名的软件使用统计**以改进产品（首次启动时会征得同意，可拒绝，拒绝不影响功能）；不收集视频内容/文字/个人信息
-- **培训机构/企业商用需购买商业授权**，联系作者洽谈
-- 个人/教育/非商业使用许可：[PolyForm Noncommercial 1.0.0](./LICENSE)
+**个人与教育用途永久免费**（含全部功能，无功能墙）：[PolyForm Noncommercial 1.0.0](./LICENSE)。
+
+匿名使用统计仅用于改进产品，首次启动时征得同意、可随时拒绝；**拒绝与否不影响任何功能**。
+
+**闭源 / 商业使用**（培训机构、企业内训等）需获得商业许可：[2493468168@qq.com](mailto:2493468168@qq.com)。
 
 ---
 
