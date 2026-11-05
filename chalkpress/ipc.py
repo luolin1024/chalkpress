@@ -14,10 +14,12 @@ from pathlib import Path
 from .config import (
     load_config_file,
     load_llm_config,
+    load_privacy_consent,
     logs_dir,
     normalize_settings,
     prune_logs,
     save_config_file,
+    save_privacy_consent,
     tasks_path,
 )
 from .pipeline import Options, VIDEO_EXTS, run_batch
@@ -85,7 +87,19 @@ class IPCServer:
                     "llm_configured": load_llm_config() is not None,
                     "logs_dir": str(logs_dir())}
         if method == "settings.set":
-            save_config_file(normalize_settings(params))
+            cfg = normalize_settings(params)
+            privacy = load_config_file().get("privacy")
+            if privacy:
+                cfg["privacy"] = privacy  # 保存设置不触碰隐私同意状态
+            save_config_file(cfg)
+            return {}
+        if method == "privacy.get":
+            return {"consent": load_privacy_consent()}
+        if method == "privacy.set":
+            v = params.get("consent")
+            if not isinstance(v, bool):
+                raise ValueError("consent 需为布尔值")
+            save_privacy_consent(v)
             return {}
         if method == "convert.start":
             self._start(params)
@@ -427,6 +441,8 @@ def main():
 
     logging.basicConfig(stream=sys.stderr, level=logging.INFO,
                         format="%(asctime)s %(name)s %(message)s")
+    from . import analytics
+    analytics.track_startup()  # GUI 启动埋点（未同意/未配置端点时零副作用）
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(line_buffering=True)
     protocol_out = sys.stdout   # 协议通道固定为真实 stdout

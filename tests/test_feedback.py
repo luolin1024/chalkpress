@@ -189,10 +189,10 @@ def test_to_fields_exact_field_names():
         "app_version": "0.5.2", "os": "macOS 15.5",
         "attach_log": True, "log_excerpt": "boom", "ts": "2026-11-05T10:00:00+08:00",
     })
-    assert list(fields) == ["反馈类型", "内容", "联系方式", "应用版本",
+    assert list(fields) == ["反馈类型", "内容摘要", "联系方式", "应用版本",
                             "操作系统", "日志摘要", "提交时间"]
     assert fields["反馈类型"] == "bug 报告"
-    assert fields["提交时间"] == "2026-11-05T10:00:00+08:00"
+    assert fields["提交时间"] == 1793844000  # bitable Date 字段要求秒级时间戳
 
 
 def test_to_fields_no_log_field_when_unattached():

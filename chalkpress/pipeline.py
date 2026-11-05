@@ -300,6 +300,8 @@ def run(opt: Options, log=print, progress=None, cancel_check=None) -> Result:
 
     dt = time.time() - t0
     log(f"完成：{outdir}（{dt:.1f}s）")
+    from . import analytics
+    analytics.track_conversion(pages=len(frames), seconds=dt)
     emit("video_done", name=video.name, result=Result(
         outdir=outdir, srt=srt_path if srt_path.exists() else None,
         frames=frames, aligned=aligned, summary_md=summary_md,

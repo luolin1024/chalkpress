@@ -294,3 +294,36 @@ def test_sanitize_progress_result_to_dict():
     assert "result" not in kw
     assert kw["pages"] == 3 and kw["summary"] is True and kw["duration"] == 125.0
     json.dumps(kw)  # 必须可序列化
+
+
+def test_privacy_get_set_roundtrip(tmp_path, monkeypatch):
+    """privacy.get 未询问返回 null；privacy.set 持久化 true/false。"""
+    import chalkpress.config as config
+    monkeypatch.setattr(config, "config_path", lambda: tmp_path / "config.toml")
+    s = make_server()
+    assert s.handle({"id": 1, "method": "privacy.get"})["result"]["consent"] is None
+    s.handle({"id": 2, "method": "privacy.set", "params": {"consent": True}})
+    assert s.handle({"id": 3, "method": "privacy.get"})["result"]["consent"] is True
+    s.handle({"id": 4, "method": "privacy.set", "params": {"consent": False}})
+    assert s.handle({"id": 5, "method": "privacy.get"})["result"]["consent"] is False
+
+
+def test_privacy_set_rejects_non_bool(tmp_path, monkeypatch):
+    import chalkpress.config as config
+    monkeypatch.setattr(config, "config_path", lambda: tmp_path / "config.toml")
+    s = make_server()
+    resp = s.handle({"id": 1, "method": "privacy.set", "params": {"consent": "yes"}})
+    assert "error" in resp
+    assert s.handle({"id": 2, "method": "privacy.get"})["result"]["consent"] is None
+
+
+def test_settings_set_preserves_privacy(tmp_path, monkeypatch):
+    """settings.set 合并保留 [privacy]，普通设置保存不重置同意状态。"""
+    import chalkpress.config as config
+    monkeypatch.setattr(config, "config_path", lambda: tmp_path / "config.toml")
+    s = make_server()
+    s.handle({"id": 1, "method": "privacy.set", "params": {"consent": False}})
+    s.handle({"id": 2, "method": "settings.set",
+              "params": {"options": {"summary_lang": "en"}, "app": {}}})
+    assert s.handle({"id": 3, "method": "privacy.get"})["result"]["consent"] is False
+    assert s.handle({"id": 4, "method": "settings.get"})["result"]["options"]["summary_lang"] == "en"

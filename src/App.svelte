@@ -13,11 +13,13 @@
   import ResultsCard from "./components/ResultsCard.svelte";
   import SettingsPane from "./components/SettingsPane.svelte";
   import TasksPage from "./components/TasksPage.svelte";
+  import PrivacyConsentDialog from "./components/PrivacyConsentDialog.svelte";
 
   type Page = "home" | "tasks" | "settings";
   let page = $state<Page>("home");
   let coreDown = $state(false);
   let ver = $state("");
+  let showPrivacy = $state(false);
 
   async function addFiles() {
     const sel = await open({ multiple: true,
@@ -79,6 +81,10 @@
         const r = await request<{ tasks: Task[] }>("tasks.list");
         app.tasks = r.tasks;
       } catch { /* 任务列表加载失败不阻塞首页 */ }
+      try {
+        const p = await request<{ consent: boolean | null }>("privacy.get");
+        if (p.consent !== true && p.consent !== false) showPrivacy = true;  // 首次启动：未询问过
+      } catch { /* 引擎未就绪时下次启动再问 */ }
       const VIDEO_EXTS = /\.(mp4|mov|mkv|webm|avi|m4v|flv|ts)$/i;
       const onDrop = async (paths: string[]) => {
         for (const path of paths) {
@@ -223,6 +229,10 @@
       {/if}
     </main>
   </div>
+
+  {#if showPrivacy}
+    <PrivacyConsentDialog onDone={() => (showPrivacy = false)} />
+  {/if}
 </div>
 
 <style>

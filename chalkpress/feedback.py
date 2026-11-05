@@ -33,10 +33,11 @@ CRED_KEYS = ("FEISHU_APP_ID", "FEISHU_APP_SECRET",
 TYPES = {"bug": "bug 报告", "suggestion": "功能建议",
          "question": "使用问题", "other": "其他"}
 
-# payload key → bitable 文本字段名（与开发者建好的多维表格字段精确对齐）
-FIELD_NAMES = {"type": "反馈类型", "content": "内容", "contact": "联系方式",
+# payload key → bitable 字段（与开发者多维表格精确对齐：内容摘要=主列Text、提交时间=Date 秒级时间戳）
+FIELD_NAMES = {"type": "反馈类型", "content": "内容摘要", "contact": "联系方式",
                "app_version": "应用版本", "os": "操作系统",
                "log_excerpt": "日志摘要", "ts": "提交时间"}
+DATE_FIELDS = {"提交时间"}  # bitable Date 字段要求秒级 Unix 时间戳（非 ISO 字符串）
 
 _token_cache: dict | None = None  # {"token": str, "deadline": monotonic 秒}
 
@@ -157,16 +158,25 @@ def reset_token_cache() -> None:
     _token_cache = None
 
 
-def to_fields(payload: dict) -> dict[str, str]:
+def to_fields(payload: dict) -> dict[str, object]:
     """payload → bitable fields。只映射 payload 已有键：未勾日志时不含「日志摘要」；
     日志摘要 >2000 字截断；类型映射为中文标签；字段名与表格精确对齐。"""
-    fields: dict[str, str] = {}
+    fields: dict[str, object] = {}
     for key, name in FIELD_NAMES.items():
         if key not in payload:
             continue
         value = payload[key]
         if key == "type":
             value = TYPES.get(value, TYPES["other"])
+        if name in DATE_FIELDS:
+            # bitable Date 字段要求秒级 Unix 时间戳；解析失败回退当前时间
+            try:
+                from datetime import datetime as _dt
+                value = int(_dt.fromisoformat(str(value)).timestamp())
+            except ValueError:
+                value = int(time.time())
+            fields[name] = value
+            continue
         text = str(value)
         if key == "log_excerpt" and len(text) > TEXT_LIMIT:
             text = text[:TEXT_LIMIT] + "…（已截断）"

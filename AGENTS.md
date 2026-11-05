@@ -38,7 +38,7 @@ Output per video: `<stem>_讲义/` containing `<stem>.pdf|.srt|.aligned.md|.summ
 
 `run_batch()` isolates failures: returns `list[Result | Exception]`, polls `cancel_check` between videos, emits `video_start`/`video_error`/`batch_done`, copies options via `dataclasses.replace`. Only `gui.py` uses threads (one worker + `queue.Queue` drained by `root.after(120, ...)`; progress events and update-check results travel the same queue); cancellation is cooperative.
 
-**Config resolution chain** `explicit arg > CHALKPRESS_* env (legacy V2P2_* accepted) > config.toml > built-in default` recurs in four places — keep new config options consistent: `load_llm_config` (config.py), `resolve_options` (pipeline.py), `ffmpeg()` (binaries.py), `register_cjk_font` (pdf.py). Config dir is platform data dir `/chalkpress/`; `_migrate_old_config()` one-time copies legacy `v2p2/config.toml`. Logs (GUI, opt-in via 设置→保留运行日志) go to `logs_dir()`.
+**Config resolution chain** `explicit arg > CHALKPRESS_* env > config.toml > built-in default` recurs in four places — keep new config options consistent: `load_llm_config` (config.py), `resolve_options` (pipeline.py), `ffmpeg()` (binaries.py), `register_cjk_font` (pdf.py). Config dir is platform data dir `/chalkpress/`. Logs (GUI, opt-in via 设置→保留运行日志) go to `logs_dir()`.
 
 ## Key Directories
 
@@ -82,7 +82,7 @@ No lint/format/typecheck tooling is configured. CI (`.github/workflows/build-bin
 - **Underscore-private helpers are imported across modules** (e.g. `from .align import _mmss`) — accepted here, don't "fix" by duplicating.
 - **GUI visual tokens** (gui.py): colors `BG/#F5F5F7 SIDE/#E9E9EC CARD/#FFF INK/#1D1D1F INK2/#6E6E73 LINE/#D9D9DE GREEN/#2F5D50`; CJK font = PingFang SC / Microsoft YaHei UI / Noto Sans CJK SC; ttk theme `clam` with `CP.*` styles; `Switch` is a self-drawn Canvas toggle; `draw_logo` paints the mark (green tile + handout page + play triangle) — keep sidebar/пacked-card anchors (`self.acts`, `self.stop_btn`) stable when touching pack order.
 - CLI exit codes: `0` ok, `1` no videos/error, `2` any batch item failed, `130` KeyboardInterrupt.
-- Env vars: `CHALKPRESS_API_BASE`, `CHALKPRESS_API_KEY`, `CHALKPRESS_LLM_MODEL`, `CHALKPRESS_FFMPEG`, `CHALKPRESS_FONT` (legacy `V2P2_*` still accepted); plus `HF_ENDPOINT=https://hf-mirror.com` auto-fallback when huggingface.co is unreachable (set before `huggingface_hub` import).
+- Env vars: `CHALKPRESS_API_BASE`, `CHALKPRESS_API_KEY`, `CHALKPRESS_LLM_MODEL`, `CHALKPRESS_FFMPEG`, `CHALKPRESS_FONT`; plus `HF_ENDPOINT=https://hf-mirror.com` auto-fallback when huggingface.co is unreachable (set before `huggingface_hub` import). `POST_CHALKPRESS_ANALYTICS_URL` (optional): anonymous-usage-stats upload endpoint; unset → stats cached locally only, never sent.
 
 ## Important Files
 
@@ -90,7 +90,7 @@ No lint/format/typecheck tooling is configured. CI (`.github/workflows/build-bin
 |---|---|
 | `chalkpress/pipeline.py` | Orchestrator; `Options`, `Result`, `resolve_options`, 5-stage `run(log, progress)`, fault-tolerant `run_batch(…, progress)`. The only module UIs should call. |
 | `chalkpress/gui.py` | Full tkinter app: sidebar (转换/设置), zero-config 转换页 (drop zone → plan chips → run → done stats), settings cards with per-item explainers, log-file switch, update check/download. |
-| `chalkpress/config.py` | `LLMConfig`, `LangPack`, `LANG_PACK`, `load_llm_config`, `config_dir/config_path/logs_dir/_migrate_old_config`, hand-rolled TOML read/write (scalars only). |
+| `chalkpress/config.py` | `LLMConfig`, `LangPack`, `LANG_PACK`, `load_llm_config`, `config_dir/config_path/logs_dir`, privacy consent read/write, hand-rolled TOML read/write (scalars only). |
 | `chalkpress/update.py` | GitHub Releases check (`fetch_latest`/`is_newer`), platform asset picking, streamed `download`, `reveal`. |
 | `chalkpress/asr.py` | Whisper backend dispatch returning `(segments, detected_lang)`, PyAV bypass (wave→numpy float32), HF mirror fallback, bundled-model resolution (`sys._MEIPASS`). |
 | `chalkpress/binaries.py` | `@lru_cache ffmpeg()` resolver: `CHALKPRESS_FFMPEG` → `PATH` → `imageio_ffmpeg`. |

@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 import sys
 import time
 from dataclasses import dataclass
@@ -120,19 +119,7 @@ def prune_logs(days: int = LOG_RETENTION_DAYS) -> int:
     return removed
 
 
-def _migrate_old_config() -> None:
-    """v0.1 目录名 v2p2 → chalkpress 的一次性配置迁移。"""
-    new = config_path()
-    if new.is_file():
-        return
-    old = new.parent.parent / "v2p2" / "config.toml"
-    if old.is_file():
-        new.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(old, new)
-
-
 def load_config_file() -> dict:
-    _migrate_old_config()
     path = config_path()
     if not path.is_file():
         return {}
@@ -145,7 +132,7 @@ def load_config_file() -> dict:
 
 
 def save_config_file(cfg: dict) -> Path:
-    """极简 TOML 写入（支持 llm / options 两个 section，值为标量）。"""
+    """极简 TOML 写入（值为标量的 section：options / app / llm / privacy）。"""
     path = config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     lines: list[str] = []
@@ -167,17 +154,32 @@ def save_config_file(cfg: dict) -> Path:
 
 
 def load_llm_config(api_base=None, api_key=None, model=None) -> LLMConfig | None:
-    """优先级：CLI/GUI 参数 > 环境变量（CHALKPRESS_*，兼容旧 V2P2_*）> 配置文件 [llm]。
+    """优先级：CLI/GUI 参数 > 环境变量（CHALKPRESS_*）> 配置文件 [llm]。
 
     三者齐备才启用 LLM 分析，否则返回 None（流水线降级为纯转写+PDF）。
     """
     file_cfg = load_config_file().get("llm", {})
     cfg = LLMConfig(
-        api_base=(api_base or os.getenv("CHALKPRESS_API_BASE") or os.getenv("V2P2_API_BASE") or file_cfg.get("api_base") or "").strip().rstrip("/"),
-        api_key=(api_key or os.getenv("CHALKPRESS_API_KEY") or os.getenv("V2P2_API_KEY") or file_cfg.get("api_key") or "").strip(),
-        model=(model or os.getenv("CHALKPRESS_LLM_MODEL") or os.getenv("V2P2_LLM_MODEL") or file_cfg.get("model") or "").strip(),
+        api_base=(api_base or os.getenv("CHALKPRESS_API_BASE") or file_cfg.get("api_base") or "").strip().rstrip("/"),
+        api_key=(api_key or os.getenv("CHALKPRESS_API_KEY") or file_cfg.get("api_key") or "").strip(),
+        model=(model or os.getenv("CHALKPRESS_LLM_MODEL") or file_cfg.get("model") or "").strip(),
     )
     return cfg if (cfg.api_base and cfg.api_key and cfg.model) else None
+
+
+def load_privacy_consent() -> bool | None:
+    """[privacy] analytics_consent：true/false；未写入 = None（尚未询问）。
+
+    同意后 analytics 模块才允许记录/上报匿名使用统计；拒绝或未询问一律静默。
+    """
+    v = load_config_file().get("privacy", {}).get("analytics_consent")
+    return None if v is None else bool(v)
+
+
+def save_privacy_consent(v: bool) -> None:
+    cfg = load_config_file()
+    cfg["privacy"] = {"analytics_consent": bool(v)}
+    save_config_file(cfg)
 
 
 def normalize_settings(raw: dict) -> dict:

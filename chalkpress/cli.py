@@ -73,6 +73,8 @@ def main(argv=None) -> int:
         print("错误：没有找到可处理的视频文件", file=sys.stderr)
         return 1
     print(f"共 {len(videos)} 个视频待处理")
+    from . import analytics
+    analytics.track_startup()  # CLI 启动埋点（未同意/未配置端点时零副作用）
     try:
         results = run_batch(Options(
             video=videos[0], outdir=args.outdir, output_layout=args.layout,

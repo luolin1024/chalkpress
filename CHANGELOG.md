@@ -2,6 +2,18 @@
 
 更早的版本说明见 [GitHub Releases](https://github.com/luolin1024/chalkpress/releases)。
 
+## [0.6.0] - 2026-11-05
+
+### Added
+
+- 首次启动隐私确认对话框：一次性征询匿名统计同意（同意/拒绝持久化到 config.toml `[privacy] analytics_consent`，拒绝不影响任何功能）
+- 匿名使用统计（`analytics.py`）：同意后本地记录启动/转换完成事件（时间戳、事件名、OS、版本号、页数/耗时计数；随机 UUID 匿名 ID，绝无视频内容/文字/文件名），缓存于 config 数据目录 `analytics_events.json`；每周至多批量上报一次，端点由 `POST_CHALKPRESS_ANALYTICS_URL` 提供——未设置则只存不发、永不联网
+- README 商业模式段：个人/教育永久免费（含全部功能）；匿名统计可拒绝；培训机构/企业商用需购买商业授权
+
+### Removed
+
+- 移除全部 `V2P2_*` 旧环境变量兼容（API_BASE/API_KEY/LLM_MODEL/FFMPEG/FONT）与 v2p2 目录配置迁移——上线新项目无历史包袱，`CHALKPRESS_*` 不受影响
+
 ## [0.5.2] - 2026-11-05
 
 ### Changed

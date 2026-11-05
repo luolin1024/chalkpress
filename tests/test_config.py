@@ -43,3 +43,25 @@ def test_normalize_output_layout_fallback():
     assert bad["options"]["output_layout"] == "original"
     ok = normalize_settings({"options": {"output_layout": "grouped"}})
     assert ok["options"]["output_layout"] == "grouped"
+
+
+def test_privacy_consent_roundtrip(tmp_path, monkeypatch):
+    """[privacy] analytics_consent：未写入=None（未询问）；true/false 持久化。"""
+    import chalkpress.config as config
+    monkeypatch.setattr(config, "config_path", lambda: tmp_path / "config.toml")
+    assert config.load_privacy_consent() is None
+    config.save_privacy_consent(True)
+    assert config.load_privacy_consent() is True
+    config.save_privacy_consent(False)
+    assert config.load_privacy_consent() is False
+
+
+def test_privacy_survives_config_rewrite(tmp_path, monkeypatch):
+    """重写 options/app/llm 不清掉 [privacy]（同意状态只由 privacy.set 改变）。"""
+    import chalkpress.config as config
+    monkeypatch.setattr(config, "config_path", lambda: tmp_path / "config.toml")
+    config.save_privacy_consent(False)
+    cfg = config.load_config_file()
+    cfg["options"] = {"summary_lang": "en"}
+    config.save_config_file(cfg)
+    assert config.load_privacy_consent() is False
