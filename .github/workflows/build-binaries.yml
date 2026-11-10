@@ -76,6 +76,15 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # 编译进 Rust 壳，spawn sidecar 时注入对应环境变量（见 lib.rs spawn_core）：
+          # 反馈代理（secret 留 ECS 服务端）+ 统计直写 bitable 所需凭据与表 ID。
+          # 任一 secret 未配置 → 对应通道自动停用（反馈入口隐藏 / 统计只存不发）
+          CHALKPRESS_FEEDBACK_URL: ${{ secrets.CHALKPRESS_FEEDBACK_URL }}
+          CHALKPRESS_FEEDBACK_TOKEN: ${{ secrets.CHALKPRESS_FEEDBACK_TOKEN }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_BITABLE_APP_TOKEN: ${{ secrets.FEISHU_BITABLE_APP_TOKEN }}
+          FEISHU_BITABLE_ANALYTICS_TABLE_ID: ${{ secrets.FEISHU_BITABLE_ANALYTICS_TABLE_ID }}
         with:
           # tag 推送才创建/上传 Release；main 推送只构建不出版
           tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}

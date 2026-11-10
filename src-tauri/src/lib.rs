@@ -62,6 +62,23 @@ fn spawn_core() -> Result<Child, String> {
     cmd.stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
+    // 编译期注入发布通道配置（CI secrets → sidecar 环境变量，见 build-binaries.yml）：
+    // 反馈走 ECS 代理（URL + 共享口令，secret 留服务端）；匿名统计直写 bitable
+    // （app 凭据 + 统计表 ID，风险已被接受：凭据随包分发）。未配置的项不注入 →
+    // 客户端行为退化为"反馈入口隐藏 / 统计只存不发"。
+    fn set_env(cmd: &mut Command, key: &str, val: Option<&str>) {
+        if let Some(v) = val {
+            if !v.is_empty() {
+                cmd.env(key, v);
+            }
+        }
+    }
+    set_env(&mut cmd, "CHALKPRESS_FEEDBACK_PROXY_URL", option_env!("CHALKPRESS_FEEDBACK_URL"));
+    set_env(&mut cmd, "CHALKPRESS_FEEDBACK_PROXY_TOKEN", option_env!("CHALKPRESS_FEEDBACK_TOKEN"));
+    set_env(&mut cmd, "FEISHU_APP_ID", option_env!("FEISHU_APP_ID"));
+    set_env(&mut cmd, "FEISHU_APP_SECRET", option_env!("FEISHU_APP_SECRET"));
+    set_env(&mut cmd, "FEISHU_BITABLE_APP_TOKEN", option_env!("FEISHU_BITABLE_APP_TOKEN"));
+    set_env(&mut cmd, "FEISHU_BITABLE_ANALYTICS_TABLE_ID", option_env!("FEISHU_BITABLE_ANALYTICS_TABLE_ID"));
     // core 是控制台子系统程序，Windows 下不设此标志会弹出黑色控制台窗口
     #[cfg(windows)]
     {

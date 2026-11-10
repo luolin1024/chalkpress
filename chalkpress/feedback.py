@@ -1,7 +1,11 @@
-"""应用内反馈：表单输入 → 飞书开放 API 写多维表格（方案 B：自建应用直连 bitable）。
+"""应用内反馈：表单输入 → 飞书多维表格（两条路径，代理优先）。
+
+- ECS 代理（发布版主路径）：POST payload 到 CHALKPRESS_FEEDBACK_PROXY_URL，
+  飞书凭据留在服务端，secret 永不进客户端二进制；
+- 直连 bitable（开发路径）：自建应用凭据（env 文件或环境变量）直写多维表格。
 
 隐私红线：请求只含用户主动填写的反馈字段 + 可选的运行日志尾部摘录，
-绝不携带视频内容/转写文本/流水线产物。凭据缺失/不完整时 GUI 隐藏入口，
+绝不携带视频内容/转写文本/流水线产物。两条路径都不可用时 GUI 隐藏入口，
 本模块 submit_feedback 返回 False 兜底。凭据永不写入仓库/config.toml。
 """
 from __future__ import annotations
@@ -29,6 +33,10 @@ ENV_FILE_VAR = "CHALKPRESS_FEEDBACK_ENV"
 DEFAULT_ENV_FILE = "~/.config/chalkpress-feedback.env"  # 部署时 600 权限
 CRED_KEYS = ("FEISHU_APP_ID", "FEISHU_APP_SECRET",
              "FEISHU_BITABLE_APP_TOKEN", "FEISHU_BITABLE_TABLE_ID")
+
+# ECS 代理（发布版主路径，由 Rust 壳编译期注入或运行时设置）
+PROXY_URL_VAR = "CHALKPRESS_FEEDBACK_PROXY_URL"
+PROXY_TOKEN_VAR = "CHALKPRESS_FEEDBACK_PROXY_TOKEN"
 
 TYPES = {"bug": "bug 报告", "suggestion": "功能建议",
          "question": "使用问题", "other": "其他"}
@@ -126,6 +134,48 @@ def load_credentials(log=print) -> dict[str, str] | None:
     return creds
 
 
+def load_proxy(log=print) -> tuple[str, str] | None:
+    """ECS 代理配置：CHALKPRESS_FEEDBACK_PROXY_URL 必填，
+    CHALKPRESS_FEEDBACK_PROXY_TOKEN 选填（防滥用的共享口令）。未配置 URL → None。"""
+    url = os.getenv(PROXY_URL_VAR, "").strip()
+    if not url:
+        return None
+    return url, os.getenv(PROXY_TOKEN_VAR, "").strip()
+
+
+def feedback_available(log=print) -> bool:
+    """GUI 反馈入口开关：代理或直连凭据任一可用即可。"""
+    if load_proxy() is not None:
+        return True
+    return load_credentials(log=log) is not None
+
+
+def submit_via_proxy(payload: dict, log=print) -> bool:
+    """POST payload 到 ECS 代理（secret 服务端持有，10s 超时，重试 2 次）。"""
+    import requests
+
+    proxy = load_proxy(log=log)
+    if not proxy:
+        return False
+    url, token = proxy
+    headers = {"Content-Type": "application/json; charset=utf-8"}
+    if token:
+        headers["X-Chalkpress-Token"] = token
+    err = ""
+    for attempt in range(1 + RETRIES):
+        if attempt:
+            log(f"反馈提交失败，重试 {attempt}/{RETRIES}（{err}）")
+        try:
+            r = requests.post(url, json=payload, timeout=TIMEOUT, headers=headers)
+            if 200 <= r.status_code < 300:
+                return True
+            err = f"HTTP {r.status_code} {r.text[:80]}"
+        except requests.RequestException as exc:
+            err = str(exc)[:120]
+    log(f"反馈提交失败（代理）：{err}")
+    return False
+
+
 def get_tenant_token(app_id: str, secret: str, log=print) -> str | None:
     """tenant_access_token；内存缓存，expire-300s 提前判过期。失败返回 None。"""
     global _token_cache
@@ -185,11 +235,13 @@ def to_fields(payload: dict) -> dict[str, object]:
 
 
 def submit_feedback(payload: dict, log=print) -> bool:
-    """写 bitable 记录（user_id_type=open_id），10s 超时；失败重试 2 次，
+    """写反馈记录：代理优先（发布版），否则凭据直连 bitable；失败重试 2 次，
     其间刷新 token 一次；仍失败返回 False（GUI 降级引导 GitHub Issues）。
 
-    凭据缺失直接 False（正常路径下 GUI 入口已隐藏，此处兜底）。
+    两条路径都不可用直接 False（正常路径下 GUI 入口已隐藏，此处兜底）。
     """
+    if load_proxy() is not None:
+        return submit_via_proxy(payload, log=log)
     creds = load_credentials(log=log)
     if not creds:
         return False

@@ -124,17 +124,21 @@ class IPCServer:
             d.mkdir(parents=True, exist_ok=True)
             return {"dir": str(d), "pruned": prune_logs()}
         if method == "feedback.status":
-            from .feedback import load_credentials
-            return {"enabled": load_credentials(log=log.info) is not None}
+            from .feedback import feedback_available
+            return {"enabled": feedback_available(log=log.info)}
         if method == "feedback.submit":
             from .feedback import build_payload, submit_feedback
             content = str(params.get("content") or "").strip()
             if not 10 <= len(content) <= 500:
                 raise ValueError("反馈内容需 10-500 字")
-            p = build_payload(str(params.get("type") or "other"), content,
+            ftype = str(params.get("type") or "other")
+            p = build_payload(ftype, content,
                               str(params.get("contact") or ""),
                               bool(params.get("attach_log")))
-            return {"ok": submit_feedback(p, log=log.info)}
+            ok = submit_feedback(p, log=log.info)
+            from . import analytics
+            analytics.track_feedback(ftype, ok)
+            return {"ok": ok}
         if method == "history.list":
             from .history import list_history
             return {"history": list_history()}

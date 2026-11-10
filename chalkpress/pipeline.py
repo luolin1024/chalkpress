@@ -301,7 +301,8 @@ def run(opt: Options, log=print, progress=None, cancel_check=None) -> Result:
     dt = time.time() - t0
     log(f"完成：{outdir}（{dt:.1f}s）")
     from . import analytics
-    analytics.track_conversion(pages=len(frames), seconds=dt)
+    analytics.track_conversion(pages=len(frames), seconds=dt,
+                               summary=bool(summary_md))
     emit("video_done", name=video.name, result=Result(
         outdir=outdir, srt=srt_path if srt_path.exists() else None,
         frames=frames, aligned=aligned, summary_md=summary_md,
@@ -319,6 +320,8 @@ def run_batch(opt: Options, videos: list[Path], log=print, cancel_check=None,
     emit = _emitter(progress)
     results = []
     total = len(videos)
+    from . import analytics
+    analytics.track_batch(total)
     paused = False
     for i, v in enumerate(videos, 1):
         if cancel_check and cancel_check():
@@ -334,10 +337,14 @@ def run_batch(opt: Options, videos: list[Path], log=print, cancel_check=None,
                                log=log, progress=progress, cancel_check=cancel_check))
         except PipelinePaused:
             log(f"⏸ {v.name} 已暂停，进度已保存；再次开始将从断点继续")
+            from . import analytics
+            analytics.track_paused()
             emit("video_paused", name=v.name, index=i, total=total)
             paused = True
             break
         except Exception as exc:  # 单个失败继续下一个
+            from . import analytics
+            analytics.track_error()
             log(f"✗ {v.name} 失败：{exc}")
             results.append(exc)
             emit("video_error", name=v.name, error=str(exc))

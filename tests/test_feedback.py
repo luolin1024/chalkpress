@@ -26,7 +26,9 @@ def _fresh(monkeypatch):
     feedback.reset_token_cache()
     for key in ("FEISHU_APP_ID", "FEISHU_APP_SECRET",
                 "FEISHU_BITABLE_APP_TOKEN", "FEISHU_BITABLE_TABLE_ID",
-                "CHALKPRESS_FEEDBACK_ENV"):
+                "FEISHU_BITABLE_ANALYTICS_TABLE_ID",
+                "CHALKPRESS_FEEDBACK_ENV",
+                feedback.PROXY_URL_VAR, feedback.PROXY_TOKEN_VAR):
         monkeypatch.delenv(key, raising=False)
     yield
     feedback.reset_token_cache()
@@ -317,6 +319,41 @@ def test_submit_network_error_returns_false(tmp_path, monkeypatch):
 
     monkeypatch.setattr(requests, "post", boom)
     assert feedback.submit_feedback({"type": "bug", "content": "x"}) is False
+
+
+def test_proxy_submit_posts_payload_without_feishu(tmp_path, monkeypatch):
+    """代理路径（发布版主路径）：无凭据也可提交，POST 到代理 URL 并携带共享口令。"""
+    monkeypatch.setenv("HOME", str(tmp_path))  # 默认凭据路径下无文件 → 直连不可用
+    monkeypatch.setenv(feedback.PROXY_URL_VAR, "https://ecs.example/api/feedback")
+    monkeypatch.setenv(feedback.PROXY_TOKEN_VAR, "shared-token")
+    seen = []
+    monkeypatch.setattr(requests, "post",
+                        lambda url, json=None, timeout=None, headers=None:
+                        seen.append((url, json, headers)) or FakeResp())
+    assert feedback.submit_feedback({"type": "bug", "content": "x"}) is True
+    url, body, headers = seen[0]
+    assert url == "https://ecs.example/api/feedback"
+    assert headers["X-Chalkpress-Token"] == "shared-token"
+    assert body["type"] == "bug"
+
+
+def test_proxy_retries_then_fails(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv(feedback.PROXY_URL_VAR, "https://ecs.example/api/feedback")
+    calls = []
+    monkeypatch.setattr(requests, "post",
+                        lambda url, json=None, timeout=None, headers=None:
+                        calls.append(url) or FakeResp(status=502, text="bad gateway"))
+    assert feedback.submit_feedback({"type": "bug", "content": "x"}) is False
+    assert len(calls) == 1 + feedback.RETRIES
+
+
+def test_feedback_available_via_proxy_or_creds(tmp_path, monkeypatch):
+    """入口开关：代理或凭据任一可用即可；两者皆无则隐藏。"""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert feedback.feedback_available(log=lambda *_: None) is False
+    monkeypatch.setenv(feedback.PROXY_URL_VAR, "https://ecs.example/api/feedback")
+    assert feedback.feedback_available(log=lambda *_: None) is True
 
 
 # ---------- IPC ----------
