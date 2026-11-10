@@ -73,7 +73,7 @@ In-app auto-update included.
 
 1. Drag a video (or a whole course folder) into the window
 2. Hit **Start**
-3. Open the output folder — your handout PDF sits next to the video
+3. Open the output folder — the handout PDF sits next to the video: a 30-minute lecture, a ~5-minute read
 
 ## CLI
 
@@ -87,7 +87,6 @@ chalkpress lecture.mp4 --speed turbo         # max transcription parallelism
 ## Privacy
 
 - Videos and transcripts are processed **100% locally, never uploaded**
-- The app collects anonymous usage statistics (conversion counts, feature usage, crash reports) to improve the product — **consent is asked on first launch, can be declined, and declining affects nothing**
 - Your video content, transcript text, or personal information is never collected
 
 ## FAQ
@@ -113,15 +112,14 @@ Yes — Whisper auto-detects 90+ languages. `--summary-lang zh-en` produces bili
 <details>
 <summary><b>Privacy?</b></summary>
 
-Videos never leave your machine. Only if you configure an LLM will subtitle text and keyframes be sent to the endpoint YOU configured.
+Videos never leave your machine. Only if you configure an LLM will subtitle text and keyframes be sent to the endpoint YOU configured. Anonymous usage statistics are consent-asked separately on first launch and can be declined.
 </details>
 
 ## License
 
-- **Free forever for personal / educational use** (all features, no limits)
-- **We collect anonymous usage statistics** to improve the product (consent asked on first launch; decline anytime — declining does not affect functionality); no video content, transcripts, or personal data is ever collected
-- **Commercial use (training orgs / enterprises) requires a commercial license**: 2493468168@qq.com
-- Personal / educational / non-commercial license: [PolyForm Noncommercial 1.0.0](./LICENSE)
+**Free forever for personal / educational use** (all features, no feature wall): [PolyForm Noncommercial 1.0.0](./LICENSE).
+
+**Closed-source / commercial use** (training orgs, enterprise training) requires a commercial license: [2493468168@qq.com](mailto:2493468168@qq.com).
 
 ---
 

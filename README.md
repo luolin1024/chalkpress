@@ -13,7 +13,7 @@
 [![License](https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF-PolyForm%20NC%201.0-orange)](#许可与商业授权)
 [![Stars](https://img.shields.io/github/stars/luolin1024/chalkpress?style=social)](https://github.com/luolin1024/chalkpress/stargazers)
 
-**[下载最新版](https://github.com/luolin1024/chalkpress/releases)** · [快速上手](#快速上手) · [CLI 用法](#cli) · [常见问题](#常见问题) · [English](./README.en.md)
+**[下载最新版](https://github.com/luolin1024/chalkpress/releases)** · [30 秒上手](#30-秒上手) · [CLI 用法](#cli) · [常见问题](#常见问题) · [English](./README.en.md)
 
 </div>
 
@@ -106,7 +106,6 @@
 ## 隐私承诺
 
 - 视频与转写内容**全程本地处理，永不上传**
-- 应用收集匿名的使用统计（转换次数、功能使用、崩溃报告）以改进产品——**首次启动时征得同意，可拒绝，拒绝不影响任何功能**
 - 不会收集你的视频内容、文字内容或个人信息
 
 ## 下载安装
@@ -205,8 +204,6 @@ corepack pnpm tauri build   # 打包
 ## 许可与商业授权
 
 **个人与教育用途永久免费**（含全部功能，无功能墙）：[PolyForm Noncommercial 1.0.0](./LICENSE)。
-
-匿名使用统计仅用于改进产品，首次启动时征得同意、可随时拒绝；**拒绝与否不影响任何功能**。
 
 **闭源 / 商业使用**（培训机构、企业内训等）需获得商业许可：[2493468168@qq.com](mailto:2493468168@qq.com)。
 
