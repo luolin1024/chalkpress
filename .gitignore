@@ -7,3 +7,4 @@ output/
 .superpowers/
 node_modules/
 src-tauri/binaries/
+.idea
