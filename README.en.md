@@ -4,6 +4,8 @@
 
 **Turn lecture videos into searchable, printable PDF handouts**
 
+**A 30-minute lecture → a 5-minute read**: AI summary first for the framework, keyframe pages instead of scrubbing, review by search instead of re-watching
+
 🎬 Video ──→ 📄 Handout · Keyframe pages · Aligned subtitles · AI summary · Fully local
 
 [![Release](https://img.shields.io/github/v/release/luolin1024/chalkpress?include_prereleases&label=Download)](https://github.com/luolin1024/chalkpress/releases)
@@ -16,11 +18,26 @@
 
 ---
 
-## What is this
+## Two ways through one lecture: 30 minutes watched vs 5 minutes read
 
-The worst part of watching lectures isn't watching — it's **finding things again**. Video isn't searchable, can't be printed, and scrubbing relies on memory.
+The worst part of watching lectures isn't watching — it's **finding things again**. Video isn't searchable, can't be printed, and scrubbing relies on memory. Chalkpress compresses a lecture into a **handout booklet** you can skim, search, and print:
 
-Chalkpress compresses a lecture into a **handout booklet**:
+| Scenario | Watching | Reading the handout |
+|------|--------|--------|
+| Grasping the key points | 30 minutes of linear playback | **~5 minutes**: AI summary page 1 for the framework, then flip keyframe pages for detail |
+| Finding a specific topic | Scrub back and forth from memory | Full-text search lands on the exact page in seconds |
+| Revisiting weak sections | Re-watch nearly everything | Only those pages; timestamps on every page take you back to that 1–2 minutes of video |
+| Print & annotate on paper | Impossible | One knowledge slide per page, print and carry |
+
+Where the time savings come from:
+
+1. **AI summary on page 1** — structured key points with star weights; 30 seconds to decide what deserves a closer look
+2. **Keyframes as pages** — a page only when content changes: a 30-minute slide lecture typically yields 30–40 pages, each pairing the visual with the narration text
+3. **Searchable + timestamped** — real text layer, fully searchable; every page shows its time window, so "review" becomes lookup, not re-watching
+
+> The handout doesn't replace watching — it decouples "getting through it" from "retaining / finding it": reading for coverage, timestamps for re-watching.
+
+**The pipeline** (transcription & extraction run fully local):
 
 - **Keyframes as pages** — scene-detection-driven extraction (cuts when content changes, not fixed intervals)
 - **Subtitles on page** — local Whisper transcription, aligned to the time window of each frame
@@ -74,6 +91,12 @@ chalkpress lecture.mp4 --speed turbo         # max transcription parallelism
 - Your video content, transcript text, or personal information is never collected
 
 ## FAQ
+
+<details>
+<summary><b>Is "30 minutes → 5 minutes" exaggerated?</b></summary>
+
+For slide-based lectures (PPT recordings, concept explanations) — the typical case — page count ≈ slide count, so skimming the summary + flipping pages really compresses a 30-minute pass to ~5 minutes. Dense, derivation-heavy content compresses less — but the handout still hands you the map first, so you spend time only where it matters.
+</details>
 
 <details>
 <summary><b>Does it require an AI key?</b></summary>
