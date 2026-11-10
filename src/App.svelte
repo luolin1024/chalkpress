@@ -14,12 +14,14 @@
   import SettingsPane from "./components/SettingsPane.svelte";
   import TasksPage from "./components/TasksPage.svelte";
   import PrivacyConsentDialog from "./components/PrivacyConsentDialog.svelte";
+  import AboutDialog from "./components/AboutDialog.svelte";
 
   type Page = "home" | "tasks" | "settings";
   let page = $state<Page>("home");
   let coreDown = $state(false);
   let ver = $state("");
   let showPrivacy = $state(false);
+  let showAbout = $state(false);
 
   async function addFiles() {
     const sel = await open({ multiple: true,
@@ -177,6 +179,9 @@
         <button class="nav" class:active={page === "settings"} onclick={() => (page = "settings")}>
           <span class="ico">⚙</span> 设置
         </button>
+        <button class="nav" onclick={() => (showAbout = true)}>
+          <span class="ico">ⓘ</span> 关于
+        </button>
       </nav>
 
       <div class="foot">{ver}</div>
@@ -232,6 +237,9 @@
 
   {#if showPrivacy}
     <PrivacyConsentDialog onDone={() => (showPrivacy = false)} />
+  {/if}
+  {#if showAbout}
+    <AboutDialog ver={ver} onDone={() => (showAbout = false)} />
   {/if}
 </div>
 
